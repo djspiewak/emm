@@ -157,6 +157,44 @@ object CoPConst {
       def apply[A](fa: F[A]): G[C#Point[A]] = G.point(L(fa))
     }
   }
+
+  @implicitNotFound("could not lift ${E} into effect stack ${C}; either ${C} does not contain a component of ${E}, or a component of ${E} is missing a Functor")
+  sealed trait UnappliedLifter[E, C <: CoPConst] {
+    type Out
+
+    def apply(e: E): C#Point[Out]
+  }
+
+  trait UnappliedLifterLowPriorityImplicits {
+
+    implicit def identity[Out0, C <: CoPConst]: UnappliedLifter.Aux[Emm[C, Out0], C, Out0] = new UnappliedLifter[Emm[C, Out0], C] {
+      type Out = Out0
+
+      def apply(emm: Emm[C, Out]) = emm.run
+    }
+  }
+
+  object UnappliedLifter extends UnappliedLifterLowPriorityImplicits {
+    type Aux[E, C <: CoPConst, Out0] = UnappliedLifter[E, C] { type Out = Out0 }
+
+    implicit def exacthead[F[_], Out0]: UnappliedLifter.Aux[F[Out0], F |: CCNil, Out0] = new UnappliedLifter[F[Out0], F |: CCNil] {
+      type Out = Out0
+
+      def apply(fa: F[Out]) = fa
+    }
+
+    implicit def head[F[_], Out0, C <: CoPConst](implicit P: Mapper[C], F: Functor[F]): UnappliedLifter.Aux[F[Out0], F |: C, Out0] = new UnappliedLifter[F[Out0], F |: C]{
+      type Out = Out0
+
+      def apply(fa: F[Out]): F[C#Point[Out]] = F.map(fa) { a => P.point(a) }
+    }
+
+    implicit def corecurse[F[_], Out0, G[_], C <: CoPConst](implicit M: UnappliedLifter.Aux[F[Out0], C, Out0], G: Applicative[G]): UnappliedLifter.Aux[F[Out0], G |: C, Out0] = new UnappliedLifter[F[Out0], G |: C] {
+      type Out = Out0
+
+      def apply(fa: F[Out]): G[C#Point[Out]] = G.point(M(fa))
+    }
+  }
 }
 
 
@@ -167,7 +205,7 @@ final case class Emm[C <: CoPConst, A](run: C#Point[A]) {
   def flatMap[B](f: A => Emm[C, B])(implicit A: CoPConst.Mapper[C], B: CoPConst.Joiner[C]): Emm[C, B] =
     Emm(B.join(A.map(run) { a => f(a).run }))
 
-  def flatMapM[G[_], B](f: A => G[B])(implicit A: CoPConst.Mapper[C], B: CoPConst.Joiner[C], L: CoPConst.Lifter[G, C]): Emm[C, B] =
+  def flatMapM[E, B](f: A => E)(implicit L: CoPConst.UnappliedLifter[E, C], A: CoPConst.Mapper[C], B: CoPConst.Joiner[C]): Emm[C, L.Out] =
     flatMap { a => Emm(L(f(a))) }
 
   def expand[G[_], C2 <: CoPConst](implicit C: CoPConst.Expander[G, C, C2]): Emm[C2, G[A]] =

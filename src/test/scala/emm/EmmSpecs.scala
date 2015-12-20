@@ -93,4 +93,22 @@ object EmmSpecs extends Specification {
       e.run.run must beSome(24)
     }
   }
+
+  "flatMapM" should {
+    "be magic" in {
+      type E = Task |: Option |: CCNil
+
+      val e1 = Option(42).liftM[E]
+      val e2 = (Task now 11).liftM[E]
+
+      val result1 = e1 flatMapM { _ => e2 }
+      val result2 = e1 flatMapM { _ => Task now 11 }
+      val result3 = e1 flatMapM { _ => Option(11) }
+      // val result4 = e1 flatMapM { _ => List(11) }
+
+      result1.run.run must beSome(11)
+      result2.run.run must beSome(11)
+      result3.run.run must beSome(11)
+    }
+  }
 }
