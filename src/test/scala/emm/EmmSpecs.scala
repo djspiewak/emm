@@ -35,6 +35,16 @@ object EmmSpecs extends Specification {
 
       e mustEqual Emm[E, Int](List(None, Some(2), None, Some(4)))
     }
+
+    "enable flatMapM in any direction" in {
+      type E = List |: Option |: CCNil
+
+      val e1 = List(1, 2, 3, 4).liftM[E]
+      val e2 = e1 flatMapM { v => Some(v) filter { _ % 2 == 0 } }
+      val e3 = e2 flatMapM { v => List(v, v) }
+
+      e3 mustEqual Emm[E, Int](List(None, Some(2), Some(2), None, Some(4), Some(4)))
+    }
   }
 
   "non-traversable effect composition" should {
