@@ -1,10 +1,6 @@
 package emm
 
 import scalaz.{Applicative, Bind, Functor, Monad, Traverse}
-import scalaz.std.option._
-import scalaz.std.list._
-
-import scalaz.syntax.applicative._
 
 sealed trait CoPConst {
   type Point[A]
