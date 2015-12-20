@@ -72,5 +72,25 @@ object EmmSpecs extends Specification {
 
       sink mustEqual 42
     }
+
+    "enable access to the base of the stack" in {
+      type E = Task |: Option |: CCNil
+      val opt: Option[Int] = None
+
+      // this type infers better than a single function
+      val e = opt.liftM[E].expand map { _ getOrElse 12 }
+
+      e.run.run mustEqual 12
+    }
+
+    "allow both expansion and collapse of base" in {
+      type E = Task |: Option |: CCNil
+      val opt: Option[Int] = None
+
+      // this type infers better than a single function
+      val e = opt.liftM[E].expand map { _ orElse Some(24) } collapse
+
+      e.run.run must beSome(24)
+    }
   }
 }
