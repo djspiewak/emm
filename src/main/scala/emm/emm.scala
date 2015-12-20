@@ -202,11 +202,11 @@ final case class Emm[C <: CoPConst, A](run: C#Point[A]) {
 
   def map[B](f: A => B)(implicit C: CoPConst.Mapper[C]): Emm[C, B] = Emm(C.map(run)(f))
 
-  def flatMap[B](f: A => Emm[C, B])(implicit A: CoPConst.Mapper[C], B: CoPConst.Joiner[C]): Emm[C, B] =
+  def flatMapE[B](f: A => Emm[C, B])(implicit A: CoPConst.Mapper[C], B: CoPConst.Joiner[C]): Emm[C, B] =
     Emm(B.join(A.map(run) { a => f(a).run }))
 
-  def flatMapM[E, B](f: A => E)(implicit L: CoPConst.UnappliedLifter[E, C], A: CoPConst.Mapper[C], B: CoPConst.Joiner[C]): Emm[C, L.Out] =
-    flatMap { a => Emm(L(f(a))) }
+  def flatMap[E, B](f: A => E)(implicit L: CoPConst.UnappliedLifter[E, C], A: CoPConst.Mapper[C], B: CoPConst.Joiner[C]): Emm[C, L.Out] =
+    flatMapE { a => Emm(L(f(a))) }
 
   def expand[G[_], C2 <: CoPConst](implicit C: CoPConst.Expander[G, C, C2]): Emm[C2, G[A]] =
     Emm(C(run))
