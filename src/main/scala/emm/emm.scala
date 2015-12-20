@@ -2,6 +2,8 @@ package emm
 
 import scalaz.{Applicative, Bind, Functor, Monad, Traverse}
 
+import scala.annotation.implicitNotFound
+
 sealed trait CoPConst {
   type Point[A]
 }
@@ -16,6 +18,7 @@ final class CCNil extends CoPConst {
 
 object CoPConst {
 
+  @implicitNotFound("could not compute a method for mapping over effect stack ${C}; either a member of the stack lacks an Applicative, or its Applicative instance is ambiguous")
   sealed trait Mapper[C <: CoPConst] {
 
     def point[A](a: A): C#Point[A]
@@ -73,6 +76,7 @@ object CoPConst {
     }
   }
 
+  @implicitNotFound("could not prove ${C} is a valid monadic stack; perhaps an effect is lacking a Bind, or a non-outer effect is lacking a Traverse")
   sealed trait Joiner[C <: CoPConst] {
     def join[A](cca: C#Point[C#Point[A]]): C#Point[A]
   }
@@ -134,6 +138,7 @@ object CoPConst {
     }
   }
 
+  @implicitNotFound("could not lift effect ${F} into stack ${C}; either ${C} does not contain ${F}, or there is no Functor for ${F}")
   sealed trait Lifter[F[_], C <: CoPConst] {
     def apply[A](fa: F[A]): C#Point[A]
   }
