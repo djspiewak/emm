@@ -17,7 +17,7 @@ These goals are very similar to those which motivated [Oleg's `Eff`](http://okmi
 def readName: Task[String] = ???
 def log(msg: String): Task[Unit] = ???
 
-type E = Task |: Option |: CCNil
+type E = Task |: Option |: Base
 
 val effect: Emm[E, String] = for {
   first <- readName.liftM[E]
@@ -51,7 +51,7 @@ The advantages of `Emm` become much more apparent when attempting to stack more 
 def readName: Task[String] = ???
 def log(msg: String): Task[Unit] = ???
 
-type E = Task |: Either[String, _] |: Option |: CCNil
+type E = Task |: Either[String, _] |: Option |: Base
 
 val effect: Emm[E, String] = for {
   first <- readName.liftM[E]
@@ -101,7 +101,7 @@ Right now, this is sitting on top of the scalaz 7.1 typeclass hierarchy, but it 
 Constraints which are not required to evaluate a given function are not assumed.  For example, consider the following effect stack:
 
 ```scala
-type E = Option |: Task |: CCNil
+type E = Option |: Task |: Base
 
 val effect = Option(42).liftM[E]
 ```
@@ -134,12 +134,12 @@ Option[Task[Option[Task[Int]]]] => Option[Option[Task[Task[Int]]]] => Option[Tas
 
 Clearly, there are no problems with the last two stages, but that second stage is completely impossible.  We can't take a value from inside `Task` and "flip" it to the outside.  `Task` is basically a `Future`, so the value "inside" of `Task` doesn't even exist yet!  So this effect stack is non-sensical as a monad; we cannot define `flatMap` on it, and the compiler is very happy to tell us so.
 
-Technically, the reason we *can't* do this is because there is no instance `Traverse[Task]`, and in fact you cannot define such an instance without actually running the `Task`.  Our example from earlier though, where our stack was `Task |: Option |: CCNil` was just fine, because there *is* an instance `Traverse[Option]`.
+Technically, the reason we *can't* do this is because there is no instance `Traverse[Task]`, and in fact you cannot define such an instance without actually running the `Task`.  Our example from earlier though, where our stack was `Task |: Option |: Base` was just fine, because there *is* an instance `Traverse[Option]`.
 
-Here's the cool bit though.  Even though it doesn't make any sense to define `flatMap` on `Emm[Option |: Task |: CCNil, Int]`, there's no reason why we can't define `map`!
+Here's the cool bit though.  Even though it doesn't make any sense to define `flatMap` on `Emm[Option |: Task |: Base, Int]`, there's no reason why we can't define `map`!
 
 ```scala
-type E = Option |: Task |: CCNil
+type E = Option |: Task |: Base
 
 val effect = Option(42).liftM[E]
 

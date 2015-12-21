@@ -12,21 +12,21 @@ object EmmSpecs extends Specification {
     "allow lifting in either direction" in {
       val opt: Option[Int] = Some(42)
 
-      opt.liftM[Option |: List |: CCNil]
-      opt.liftM[List |: Option |: CCNil]
+      opt.liftM[Option |: List |: Base]
+      opt.liftM[List |: Option |: Base]
 
       ok
     }
 
     "allow mapping" in {
       val opt: Option[Int] = Some(42)
-      val e = opt.liftM[List |: Option |: CCNil]
+      val e = opt.liftM[List |: Option |: Base]
 
-      e map (2 *) mustEqual Emm[List |: Option |: CCNil, Int](List(Some(84)))
+      e map (2 *) mustEqual Emm[List |: Option |: Base, Int](List(Some(84)))
     }
 
     "allow binding" in {
-      type E = List |: Option |: CCNil
+      type E = List |: Option |: Base
 
       val e = for {
         v <- List(1, 2, 3, 4).liftM[E]
@@ -37,7 +37,7 @@ object EmmSpecs extends Specification {
     }
 
     "enable flatMap in any direction" in {
-      type E = List |: Option |: CCNil
+      type E = List |: Option |: Base
 
       val e1 = List(1, 2, 3, 4).liftM[E]
       val e2 = e1 flatMap { v => Some(v) filter { _ % 2 == 0 } }
@@ -51,14 +51,14 @@ object EmmSpecs extends Specification {
     "allow mapping in either direction" in {
       val opt: Option[Int] = Some(42)
 
-      opt.liftM[Task |: Option |: CCNil] map (2 *)
-      opt.liftM[Option |: Task |: CCNil] map (2 *)
+      opt.liftM[Task |: Option |: Base] map (2 *)
+      opt.liftM[Option |: Task |: Base] map (2 *)
 
       ok
     }
 
     "allow binding where the non-traversable effect is outermost" in {
-      type E = Task |: Option |: CCNil
+      type E = Task |: Option |: Base
       val opt: Option[Int] = Some(42)
 
       var sink = 0
@@ -74,7 +74,7 @@ object EmmSpecs extends Specification {
     }
 
     "enable access to the base of the stack" in {
-      type E = Task |: Option |: CCNil
+      type E = Task |: Option |: Base
       val opt: Option[Int] = None
 
       // this type infers better than a single function
@@ -84,7 +84,7 @@ object EmmSpecs extends Specification {
     }
 
     "allow both expansion and collapse of base" in {
-      type E = Task |: Option |: CCNil
+      type E = Task |: Option |: Base
       val opt: Option[Int] = None
 
       // this type infers better than a single function
@@ -96,7 +96,7 @@ object EmmSpecs extends Specification {
 
   "flatMapM" should {
     "be magic" in {
-      type E = Task |: Option |: CCNil
+      type E = Task |: Option |: Base
 
       val e1 = Option(42).liftM[E]
       val e2 = (Task now 11).liftM[E]
