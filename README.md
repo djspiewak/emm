@@ -21,11 +21,11 @@ type E = Task |: Option |: Base
 
 val effect: Emm[E, String] = for {
   first <- readName.liftM[E]
-  last <- readName
+  last <- readName.liftM[E]
 
-  name <- if ((first.length * last.length) < 20) Some(s"$first $last") else None
+  name <- (if ((first.length * last.length) < 20) Some(s"$first $last") else None).liftM[E]
 
-  _ <- log(s"successfully read in $name")
+  _ <- log(s"successfully read in $name").liftM[E]
 } yield name
 ```
 
@@ -55,13 +55,13 @@ type E = Task |: Either[String, _] |: Option |: Base
 
 val effect: Emm[E, String] = for {
   first <- readName.liftM[E]
-  last <- readName
+  last <- readName.liftM[E]
 
-  name <- if ((first.length * last.length) < 20) Some(s"$first $last") else None
+  name <- (if ((first.length * last.length) < 20) Some(s"$first $last") else None).liftM[E]
 
-  _ <- if (name == "Daniel Spiewak") Left("your kind isn't welcome here") else Right(())
+  _ <- (if (name == "Daniel Spiewak") Left("your kind isn't welcome here") else Right(())).liftM[E]
 
-  _ <- log(s"successfully read in $name")
+  _ <- log(s"successfully read in $name").liftM[E]
 } yield name
 ```
 
@@ -109,7 +109,7 @@ val effect = Option(42).liftM[E]
 If you attempt to run `flatMap` on this effect stack, you will run into problems:
 
 ```scala
-effect flatMap { i => if (i < 20) None else Some(i * 2) }          // does not compile!
+effect flatMapM { i => if (i < 20) None else Some(i * 2) }          // does not compile!
 ```
 
 This will fail because `Task` is *not* the outer-most effect, which is to say, it isn't the effect on the far left of the effect definition.  The reason this is a problem becomes more clear if we look at things in terms of `map`, `flatten` and the raw stack, rather than simply `flatMap` and the collapsed `Emm` monad:
@@ -132,7 +132,7 @@ Notice the problem here.  We need to take the second `Option` layer, which is *w
 Option[Task[Option[Task[Int]]]] => Option[Option[Task[Task[Int]]]] => Option[Task[Task[Int]]] => Option[Task[Int]]
 ```
 
-Clearly, there are no problems with the last two stages, but that second stage is completely impossible.  We can't take a value from inside `Task` and "flip" it to the outside.  `Task` is basically a `Future`, so the value "inside" of `Task` doesn't even exist yet!  So this effect stack is non-sensical as a monad; we cannot define `flatMap` on it, and the compiler is very happy to tell us so.
+Clearly, there are no problems with the last two stages, but that second stage is completely impossible.  We can't take a value from inside `Task` and "flip" it to the outside.  `Task` is basically a `Future`, so the value "inside" of `Task` doesn't even exist yet!  So this effect stack is non-sensical as a monad; we cannot define `flatMap` (or equivalently, `flatMapM`) on it, and the compiler is very happy to tell us so.
 
 Technically, the reason we *can't* do this is because there is no instance `Traverse[Task]`, and in fact you cannot define such an instance without actually running the `Task`.  Our example from earlier though, where our stack was `Task |: Option |: Base` was just fine, because there *is* an instance `Traverse[Option]`.
 

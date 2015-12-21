@@ -30,18 +30,18 @@ object EmmSpecs extends Specification {
 
       val e = for {
         v <- List(1, 2, 3, 4).liftM[E]
-        v2 <- Some(v) filter { _ % 2 == 0 }
+        v2 <- (Some(v) filter { _ % 2 == 0 }).liftM[E]
       } yield v2
 
       e mustEqual Emm[E, Int](List(None, Some(2), None, Some(4)))
     }
 
-    "enable flatMap in any direction" in {
+    "enable flatMapM in any direction" in {
       type E = List |: Option |: Base
 
       val e1 = List(1, 2, 3, 4).liftM[E]
-      val e2 = e1 flatMap { v => Some(v) filter { _ % 2 == 0 } }
-      val e3 = e2 flatMap { v => List(v, v) }
+      val e2 = e1 flatMapM { v => Some(v) filter { _ % 2 == 0 } }
+      val e3 = e2 flatMapM { v => List(v, v) }
 
       e3 mustEqual Emm[E, Int](List(None, Some(2), Some(2), None, Some(4), Some(4)))
     }
@@ -65,7 +65,7 @@ object EmmSpecs extends Specification {
 
       val e = for {
         i <- opt.liftM[E]
-        _ <- Task delay { sink += i }
+        _ <- (Task delay { sink += i }).liftM[E]
       } yield ()
 
       e.run.run
@@ -91,24 +91,6 @@ object EmmSpecs extends Specification {
       val e = opt.liftM[E].expand map { _ orElse Some(24) } collapse
 
       e.run.run must beSome(24)
-    }
-  }
-
-  "flatMapM" should {
-    "be magic" in {
-      type E = Task |: Option |: Base
-
-      val e1 = Option(42).liftM[E]
-      val e2 = (Task now 11).liftM[E]
-
-      val result1 = e1 flatMap { _ => e2 }
-      val result2 = e1 flatMap { _ => Task now 11 }
-      val result3 = e1 flatMap { _ => Option(11) }
-      // val result4 = e1 flatMap { _ => List(11) }
-
-      result1.run.run must beSome(11)
-      result2.run.run must beSome(11)
-      result3.run.run must beSome(11)
     }
   }
 }

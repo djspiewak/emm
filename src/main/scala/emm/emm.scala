@@ -157,44 +157,6 @@ object Effects {
       def apply[A](fa: F[A]): G[C#Point[A]] = G.point(L(fa))
     }
   }
-
-  @implicitNotFound("could not lift ${E} into effect stack ${C}; either ${C} does not contain a component of ${E}, or a component of ${E} is missing a Functor")
-  sealed trait UnappliedLifter[E, C <: Effects] {
-    type Out
-
-    def apply(e: E): C#Point[Out]
-  }
-
-  trait UnappliedLifterLowPriorityImplicits {
-
-    implicit def identity[Out0, C <: Effects]: UnappliedLifter.Aux[Emm[C, Out0], C, Out0] = new UnappliedLifter[Emm[C, Out0], C] {
-      type Out = Out0
-
-      def apply(emm: Emm[C, Out]) = emm.run
-    }
-  }
-
-  object UnappliedLifter extends UnappliedLifterLowPriorityImplicits {
-    type Aux[E, C <: Effects, Out0] = UnappliedLifter[E, C] { type Out = Out0 }
-
-    implicit def exacthead[F[_], Out0]: UnappliedLifter.Aux[F[Out0], F |: Base, Out0] = new UnappliedLifter[F[Out0], F |: Base] {
-      type Out = Out0
-
-      def apply(fa: F[Out]) = fa
-    }
-
-    implicit def head[F[_], Out0, C <: Effects](implicit P: Mapper[C], F: Functor[F]): UnappliedLifter.Aux[F[Out0], F |: C, Out0] = new UnappliedLifter[F[Out0], F |: C]{
-      type Out = Out0
-
-      def apply(fa: F[Out]): F[C#Point[Out]] = F.map(fa) { a => P.point(a) }
-    }
-
-    implicit def corecurse[F[_], Out0, G[_], C <: Effects](implicit M: UnappliedLifter.Aux[F[Out0], C, Out0], G: Applicative[G]): UnappliedLifter.Aux[F[Out0], G |: C, Out0] = new UnappliedLifter[F[Out0], G |: C] {
-      type Out = Out0
-
-      def apply(fa: F[Out]): G[C#Point[Out]] = G.point(M(fa))
-    }
-  }
 }
 
 
@@ -202,11 +164,11 @@ final case class Emm[C <: Effects, A](run: C#Point[A]) {
 
   def map[B](f: A => B)(implicit C: Effects.Mapper[C]): Emm[C, B] = Emm(C.map(run)(f))
 
-  def flatMapE[B](f: A => Emm[C, B])(implicit A: Effects.Mapper[C], B: Effects.Joiner[C]): Emm[C, B] =
+  def flatMap[B](f: A => Emm[C, B])(implicit A: Effects.Mapper[C], B: Effects.Joiner[C]): Emm[C, B] =
     Emm(B.join(A.map(run) { a => f(a).run }))
 
-  def flatMap[E, B](f: A => E)(implicit L: Effects.UnappliedLifter[E, C], A: Effects.Mapper[C], B: Effects.Joiner[C]): Emm[C, L.Out] =
-    flatMapE { a => Emm(L(f(a))) }
+  def flatMapM[G[_], B](f: A => G[B])(implicit L: Effects.Lifter[G, C], A: Effects.Mapper[C], B: Effects.Joiner[C]): Emm[C, B] =
+    flatMap { a => Emm(L(f(a))) }
 
   def expand[G[_], C2 <: Effects](implicit C: Effects.Expander[G, C, C2]): Emm[C2, G[A]] =
     Emm(C(run))
