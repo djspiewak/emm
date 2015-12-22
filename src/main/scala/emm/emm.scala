@@ -157,6 +157,33 @@ object Effects {
       def apply[A](fa: F[A]): G[C#Point[A]] = G.point(L(fa))
     }
   }
+
+  @implicitNotFound("could not infer effect stack ${C} from type ${E}; either ${C} does not match ${E}, or a component of ${E} lacks a Functor, or you have simply run afoul of SI-2712")
+  sealed trait Wrapper[E, C <: Effects] {
+    type A
+
+    def apply(e: E): C#Point[A]
+  }
+
+  trait WrapperLowPriorityImplicits {
+
+    implicit def head[A0]: Wrapper.Aux[A0, Base, A0] = new Wrapper[A0, Base] {
+      type A = A0
+
+      def apply(a: A) = a
+    }
+  }
+
+  object Wrapper extends WrapperLowPriorityImplicits {
+    type Aux[E, C <: Effects, A0] = Wrapper[E, C] { type A = A0 }
+
+    implicit def corecurse[F[_], E, C <: Effects, A0](implicit W: Wrapper.Aux[E, C, A0], F: Functor[F]): Wrapper.Aux[F[E], F |: C, A0] = new Wrapper[F[E], F |: C] {
+      type A = A0
+
+      def apply(fe: F[E]): F[C#Point[A]] =
+        F.map(fe) { e => W(e) }
+    }
+  }
 }
 
 

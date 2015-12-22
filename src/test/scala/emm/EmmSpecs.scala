@@ -1,10 +1,13 @@
 package emm
 
 import org.specs2.mutable._
+import org.specs2.matcher._
 
 import scalaz.concurrent.Task
 import scalaz.std.list._
 import scalaz.std.option._
+
+import scala.reflect.runtime.universe.TypeTag
 
 object EmmSpecs extends Specification {
 
@@ -12,10 +15,13 @@ object EmmSpecs extends Specification {
     "allow lifting in either direction" in {
       val opt: Option[Int] = Some(42)
 
-      opt.liftM[Option |: List |: Base]
-      opt.liftM[List |: Option |: Base]
+      opt.liftM[Option |: List |: Base] must haveType[Emm[Option |: List |: Base, Int]].attempt
+      opt.liftM[List |: Option |: Base] must haveType[Emm[List |: Option |: Base, Int]].attempt
+    }
 
-      ok
+    "allow wrapping of two paired constructors" in {
+      Option(List(42)).wrapM must haveType[Emm[Option |: List |: Base, Int]].attempt
+      Option(List(42)).wrapM[Option |: List |: Base] must haveType[Emm[Option |: List |: Base, Int]].attempt
     }
 
     "allow mapping" in {
@@ -91,6 +97,13 @@ object EmmSpecs extends Specification {
       val e = opt.liftM[E].expand map { _ orElse Some(24) } collapse
 
       e.run.run must beSome(24)
+    }
+  }
+
+  def haveType[A](implicit A: TypeTag[A]) = new {
+    def attempt[B](implicit B: TypeTag[B]): Matcher[B] = new Matcher[B] {
+      def apply[B2 <: B](s: Expectable[B2]) =
+        result(A.tpe =:= B.tpe, s"${s.description} has type ${A.tpe}", s"${s.description} does not have type ${A.tpe}; has type ${B.tpe}", s)
     }
   }
 }
