@@ -112,10 +112,10 @@ object Effects {
       def apply[A](fa: F[A]): F[A] = fa
     }
 
-    implicit def corecurse[F[_], G[_], C <: Effects, C2 <: Effects](implicit C: Expander[F, C, C2], G: Functor[G]): Expander[F, G |: C, G |: C2] = new Expander[F, G |: C, G |: C2] {
+    implicit def corecurse[F[_], G[_], C <: Effects, C2 <: Effects](implicit C: Expander[F, C, C2]): Expander[F, G |: C, G |: C2] = new Expander[F, G |: C, G |: C2] {
 
       def apply[A](gca: G[C#Point[A]]): G[C2#Point[F[A]]] =
-        G.map(gca) { ca => C(ca) }
+        gca.asInstanceOf[G[C2#Point[F[A]]]]     // already proven equivalent; evaluation requires a Functor
     }
   }
 
@@ -131,10 +131,10 @@ object Effects {
       def apply[A](fa: F[A]): F[A] = fa
     }
 
-    implicit def corecurse[F[_], G[_], C <: Effects, C2 <: Effects](implicit C: Collapser[F, C, C2], G: Functor[G]): Collapser[F, G |: C, G |: C2] = new Collapser[F, G |: C, G |: C2] {
+    implicit def corecurse[F[_], G[_], C <: Effects, C2 <: Effects](implicit C: Collapser[F, C, C2]): Collapser[F, G |: C, G |: C2] = new Collapser[F, G |: C, G |: C2] {
 
       def apply[A](gca: G[C#Point[F[A]]]): G[C2#Point[A]] =
-        G.map(gca) { ca => C(ca) }
+        gca.asInstanceOf[G[C2#Point[A]]]      // already proven equivalent; evaluation requires a Functor
     }
   }
 
@@ -158,7 +158,7 @@ object Effects {
     }
   }
 
-  @implicitNotFound("could not infer effect stack ${C} from type ${E}; either ${C} does not match ${E}, or a component of ${E} lacks a Functor, or you have simply run afoul of SI-2712")
+  @implicitNotFound("could not infer effect stack ${C} from type ${E}; either ${C} does not match ${E}, or you have simply run afoul of SI-2712")
   sealed trait Wrapper[E, C <: Effects] {
     type A
 
@@ -177,11 +177,11 @@ object Effects {
   object Wrapper extends WrapperLowPriorityImplicits {
     type Aux[E, C <: Effects, A0] = Wrapper[E, C] { type A = A0 }
 
-    implicit def corecurse[F[_], E, C <: Effects, A0](implicit W: Wrapper.Aux[E, C, A0], F: Functor[F]): Wrapper.Aux[F[E], F |: C, A0] = new Wrapper[F[E], F |: C] {
+    implicit def corecurse[F[_], E, C <: Effects, A0](implicit W: Wrapper.Aux[E, C, A0]): Wrapper.Aux[F[E], F |: C, A0] = new Wrapper[F[E], F |: C] {
       type A = A0
 
       def apply(fe: F[E]): F[C#Point[A]] =
-        F.map(fe) { e => W(e) }
+        fe.asInstanceOf[F[C#Point[A]]]      // already proven equivalent; actual evaluation requires a Functor
     }
   }
 }
