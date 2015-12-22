@@ -87,6 +87,21 @@ That's a *lot* of very explicit lifting and special syntax.  I had to ponder qui
 
 The `Emm` monad is intended to change all of that.  It is intended to be very straightforward to manage and extend complex stacks of effects, and to do so without any special wrappers or added complexity from the effect author.  No need to write an `OptionT`, just use `Option`!
 
+## API
+
+The following API is provided.  For starters, the following pair of functions are implicitly provided to lift values into the effect stack:
+
+- `liftM[C <: Effects]` – Given an effect which is of a type contained within `C`, lift the effect into the full effect stack represented by `C`.  For example: `Option(42).liftM[Task |: Option |: Base]`
+- `wrapM[C <: Effects]` – Given a full stack of effects which matches the stack `C`, wrap the stack in the `Emm` monad.  Note that the `C` parameter can be inferred basically 100% of the time, but can be provided explicitly to assert correctness.  Example: `(Task now Option(42)).wrapM`.  This is equivalent to calling the `Emm(...)` constructor, but the type inference is much nicer.
+
+These methods are exposed via implicit classes contained within the `emm` package object.  The `Emm` monad itself provides the following (effective) API:
+
+- `map[B](A => B): Emm[C, B]` – Conventional functor map.  Transforms the value within the effect
+- `flatMap[B](A => Emm[C, B]): Emm[C, B]` – Monadic bind.  Transforms the value within the effect and joins the two effect stacks.  This function requires that all components of `C` define a `bind` function, and all components aside from the outer-most (left-most) must have a `Traverse` instance.
+- `flatMapM[G[_], B](A => G[B]): Emm[C, B]` – Similar to `flatMap`, except instead of transforming the value to an effect contained within the entire effect stack, `C`, it transforms the value to a single component of that effect stack.  Thus, `G` must be in `C`.  The result is joined with the effect stack and returned within `Emm`.
+- `expand` – The inverse of `collapse`.  Converts an `Emm` of the form `Emm[... |: F |: Base, A]` into `Emm[... |: Base, F[A]]`.  This is extremely useful when there are effect-specific functions (e.g. `Option#getOrElse`) that you need to access on the inner-most (right-most) effect of the stack.  Once you have expanded, you can use `map` or `flatMap` to access these functions and manipulate the inner-most effect.  Runs in constant time.
+- `collapse` – The inverse of `expand`.  Converts an `Emm` of the form `Emm[... |: Base, F[A]]` into `Emm[... |: F |: Base, A]`.  This is generally most useful in conjunction with `expand`, where you have manipulated the inner-most effect and you need to "recombine" the results of that manipulation with the full effect stack.  Runs in constant time.
+
 ## Requirements
 
 Right now, this is sitting on top of the scalaz 7.1 typeclass hierarchy, but it could be adapted to cats (or any other hierarchy) almost trivially.  Everything is implemented in terms of the following type classes (with minimal constraints for every function):
