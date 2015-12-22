@@ -12,6 +12,10 @@ import scala.reflect.runtime.universe.TypeTag
 object EmmSpecs extends Specification {
 
   "simple effect composition" should {
+    "define pointM" in {
+      42.pointM[Option |: List |: Base] mustEqual Emm[Option |: List |: Base, Int](Option(List(42)))
+    }
+
     "allow lifting in either direction" in {
       val opt: Option[Int] = Some(42)
 

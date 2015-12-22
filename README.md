@@ -91,6 +91,7 @@ The `Emm` monad is intended to change all of that.  It is intended to be very st
 
 The following API is provided.  For starters, the following pair of functions are implicitly provided to lift values into the effect stack:
 
+- `pointM[C <: Effects]` – Points a value of type `A` into the monad, `Emm[C, A]`.  Requires an `Applicative` for each component of the effect stack `C`.
 - `liftM[C <: Effects]` – Given an effect which is of a type contained within `C`, lift the effect into the full effect stack represented by `C`.  For example: `Option(42).liftM[Task |: Option |: Base]`
 - `wrapM[C <: Effects]` – Given a full stack of effects which matches the stack `C`, wrap the stack in the `Emm` monad.  Note that the `C` parameter can be inferred basically 100% of the time, but can be provided explicitly to assert correctness.  Example: `(Task now Option(42)).wrapM`.  This is equivalent to calling the `Emm(...)` constructor, but the type inference is much nicer.
 
