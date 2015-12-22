@@ -101,6 +101,7 @@ These methods are exposed via implicit classes contained within the `emm` packag
 - `flatMapM[G[_], B](A => G[B]): Emm[C, B]` – Similar to `flatMap`, except instead of transforming the value to an effect contained within the entire effect stack, `C`, it transforms the value to a single component of that effect stack.  Thus, `G` must be in `C`.  The result is joined with the effect stack and returned within `Emm`.
 - `expand` – The inverse of `collapse`.  Converts an `Emm` of the form `Emm[... |: F |: Base, A]` into `Emm[... |: Base, F[A]]`.  This is extremely useful when there are effect-specific functions (e.g. `Option#getOrElse`) that you need to access on the inner-most (right-most) effect of the stack.  Once you have expanded, you can use `map` or `flatMap` to access these functions and manipulate the inner-most effect.  Runs in constant time.
 - `collapse` – The inverse of `expand`.  Converts an `Emm` of the form `Emm[... |: Base, F[A]]` into `Emm[... |: F |: Base, A]`.  This is generally most useful in conjunction with `expand`, where you have manipulated the inner-most effect and you need to "recombine" the results of that manipulation with the full effect stack.  Runs in constant time.
+- `run` – Unwraps the effect stack (without modification) from `Emm`.  Effectively, this takes a type of the form `Emm[F |: G |: Base, A]` and produces a type of the form `F[G[A]]`.  Literally, it is the "contents" of `Emm`.
 
 ## Requirements
 
