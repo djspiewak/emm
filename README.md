@@ -14,6 +14,10 @@ These goals are very similar to those which motivated [Oleg's `Eff`](http://okmi
 ## Example
 
 ```scala
+import emm._
+import scalaz.concurrent.Task
+import scalaz.std.option._
+
 def readName: Task[String] = ???
 def log(msg: String): Task[Unit] = ???
 
