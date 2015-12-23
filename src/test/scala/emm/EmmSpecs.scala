@@ -3,6 +3,7 @@ package emm
 import org.specs2.mutable._
 import org.specs2.matcher._
 
+import scalaz._
 import scalaz.concurrent.Task
 import scalaz.std.list._
 import scalaz.std.option._
@@ -21,6 +22,21 @@ object EmmSpecs extends Specification {
 
       opt.liftM[Option |: List |: Base] must haveType[Emm[Option |: List |: Base, Int]].attempt
       opt.liftM[List |: Option |: Base] must haveType[Emm[List |: Option |: Base, Int]].attempt
+    }
+
+    "lift into an effect stack of depth three" in {
+      type E = Task |: List |: Option |: Base
+
+      Option(42).liftM[E].run.run mustEqual List(Option(42))
+      List(42).liftM[E].run.run mustEqual List(Option(42))
+      (Task now 42).liftM[E].run.run mustEqual List(Option(42))
+    }
+
+    "lift into a stack that contains a type lambda" in {
+      type E = Option |: ({ type λ[α] = String \/ α })#λ |: Base
+
+      \/.right[String, Int](42).liftM[E] mustEqual Emm[E, Int](Option(\/-(42)))
+      \/.left[String, Int]("fuuuuuu").liftM[E] mustEqual Emm[E, Int](Option(-\/("fuuuuuu")))
     }
 
     "allow wrapping of two paired constructors" in {

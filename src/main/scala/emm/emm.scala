@@ -138,6 +138,66 @@ object Effects {
     }
   }
 
+  sealed trait LeftBilifter[F[_, _], B, C <: Effects] {
+    def apply[A](fa: F[A, B]): C#Point[A]
+  }
+
+  object LeftBilifter {
+
+    implicit def exacthead[F[_, _], B]: LeftBilifter[F, B, ({ type λ[α] = F[α, B] })#λ |: Base] = new LeftBilifter[F, B, ({ type λ[α] = F[α, B] })#λ |: Base] {
+      def apply[A](fa: F[A, B]): F[A, B] = fa
+    }
+
+    implicit def head[F[_, _], B, C <: Effects](implicit M: Mapper[C], F: Functor[({ type λ[α] = F[α, B] })#λ]): LeftBilifter[F, B, ({ type λ[α] = F[α, B] })#λ |: C] = new LeftBilifter[F, B, ({ type λ[α] = F[α, B] })#λ |: C] {
+      def apply[A](fa: F[A, B]): F[C#Point[A], B] = F.map(fa) { a => M.point(a) }
+    }
+
+    implicit def corecurse[F[_, _], G[_], B, C <: Effects](implicit L: LeftBilifter[F, B, C], G: Applicative[G]): LeftBilifter[F, B, G |: C] = new LeftBilifter[F, B, G |: C] {
+      def apply[A](fa: F[A, B]): G[C#Point[A]] = G.point(L(fa))
+    }
+  }
+
+  sealed trait RightBilifter[F[_, _], B, C <: Effects] {
+    def apply[A](fa: F[B, A]): C#Point[A]
+  }
+
+  object RightBilifter {
+
+    implicit def exacthead[F[_, _], B]: RightBilifter[F, B, ({ type λ[α] = F[B, α] })#λ |: Base] = new RightBilifter[F, B, ({ type λ[α] = F[B, α] })#λ |: Base] {
+      def apply[A](fa: F[B, A]): F[B, A] = fa
+    }
+
+    implicit def head[F[_, _], B, C <: Effects](implicit M: Mapper[C], F: Functor[({ type λ[α] = F[B, α] })#λ]): RightBilifter[F, B, ({ type λ[α] = F[B, α] })#λ |: C] = new RightBilifter[F, B, ({ type λ[α] = F[B, α] })#λ |: C] {
+      def apply[A](fa: F[B, A]): F[B, C#Point[A]] = F.map(fa) { a => M.point(a) }
+    }
+
+    implicit def corecurse[F[_, _], G[_], B, C <: Effects](implicit L: RightBilifter[F, B, C], G: Applicative[G]): RightBilifter[F, B, G |: C] = new RightBilifter[F, B, G |: C] {
+      def apply[A](fa: F[B, A]): G[C#Point[A]] = G.point(L(fa))
+    }
+  }
+
+  sealed trait Bilifter[F[_, _], A, B, C <: Effects] {
+    type Out
+
+    def apply(fa: F[A, B]): C#Point[Out]
+  }
+
+  object Bilifter {
+    type Aux[F[_, _], A, B, C <: Effects, Out0] = Bilifter[F, A, B, C] { type Out = Out0 }
+
+    implicit def left[F[_, _], A, B, C <: Effects](implicit L: LeftBilifter[F, B, C]): Bilifter.Aux[F, A, B, C, A] = new Bilifter[F, A, B, C] {
+      type Out = A
+
+      def apply(fa: F[A, B]): C#Point[A] = L(fa)
+    }
+
+    implicit def right[F[_, _], A, B, C <: Effects](implicit L: RightBilifter[F, A, C]): Bilifter.Aux[F, A, B, C, B] = new Bilifter[F, A, B, C] {
+      type Out = B
+
+      def apply(fa: F[A, B]): C#Point[B] = L(fa)
+    }
+  }
+
   @implicitNotFound("could not lift effect ${F} into stack ${C}; either ${C} does not contain ${F}, or there is no Functor for ${F}")
   sealed trait Lifter[F[_], C <: Effects] {
     def apply[A](fa: F[A]): C#Point[A]
