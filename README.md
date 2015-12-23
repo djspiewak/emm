@@ -69,7 +69,7 @@ val effect: Emm[E, String] = for {
 } yield name
 ```
 
-Simple and straightforward, with all the same syntax as before.  However, if we look at the same example using monad transformers, a rather distopian picture emerges:
+It works as expected, with all the same syntax as before. However, if we look at the same example using monad transformers, a rather distopian picture emerges:
 
 ```scala
 def readName: Task[String] = ???
