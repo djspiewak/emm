@@ -30,6 +30,24 @@ object Effects {
 
   object Mapper {
 
+    implicit def paheadL[F[_, _], Z](implicit F: Applicative[({ type λ[α] = F[Z, α] })#λ]): Mapper[({ type λ[α] = F[Z, α] })#λ |: Base] = new Mapper[({ type λ[α] = F[Z, α] })#λ |: Base] {
+
+      def point[A](a: A) = F.point(a)
+
+      def map[A, B](fa: F[Z, A])(f: A => B) = F.map(fa)(f)
+
+      def ap[A, B](fa: F[Z, A])(f: F[Z, A => B]) = F.ap(fa)(f)
+    }
+
+    implicit def paheadR[F[_, _], Z](implicit F: Applicative[({ type λ[α] = F[α, Z] })#λ]): Mapper[({ type λ[α] = F[α, Z] })#λ |: Base] = new Mapper[({ type λ[α] = F[α, Z] })#λ |: Base] {
+
+      def point[A](a: A) = F.point(a)
+
+      def map[A, B](fa: F[A, Z])(f: A => B) = F.map(fa)(f)
+
+      def ap[A, B](fa: F[A, Z])(f: F[A => B, Z]) = F.ap(fa)(f)
+    }
+
     implicit def head[F[_]](implicit F: Applicative[F]): Mapper[F |: Base] = new Mapper[F |: Base] {
 
       def point[A](a: A) = F.point(a)
@@ -54,6 +72,38 @@ object Effects {
         F.ap(fa)(f2)
       }
     }
+
+    implicit def pacorecurseL[F[_, _], Z, C <: Effects](implicit P: Mapper[C], F: Applicative[({ type λ[α] = F[Z, α] })#λ]): Mapper[({ type λ[α] = F[Z, α] })#λ |: C] = new Mapper[({ type λ[α] = F[Z, α] })#λ |: C] {
+
+      def point[A](a: A) = F.point(P.point(a))
+
+      def map[A, B](fa: F[Z, C#Point[A]])(f: A => B): F[Z, C#Point[B]] =
+        F.map(fa) { ca => P.map(ca)(f) }
+
+      def ap[A, B](fa: F[Z, C#Point[A]])(f: F[Z, C#Point[A => B]]): F[Z, C#Point[B]] = {
+        val f2 = F.map(f) { cf =>
+          { ca: C#Point[A] => P.ap(ca)(cf) }
+        }
+
+        F.ap(fa)(f2)
+      }
+    }
+
+    implicit def pacorecurseR[F[_, _], Z, C <: Effects](implicit P: Mapper[C], F: Applicative[({ type λ[α] = F[α, Z] })#λ]): Mapper[({ type λ[α] = F[α, Z] })#λ |: C] = new Mapper[({ type λ[α] = F[α, Z] })#λ |: C] {
+
+      def point[A](a: A) = F.point(P.point(a))
+
+      def map[A, B](fa: F[C#Point[A], Z])(f: A => B): F[C#Point[B], Z] =
+        F.map(fa) { ca => P.map(ca)(f) }
+
+      def ap[A, B](fa: F[C#Point[A], Z])(f: F[C#Point[A => B], Z]): F[C#Point[B], Z] = {
+        val f2 = F.map(f) { cf =>
+          { ca: C#Point[A] => P.ap(ca)(cf) }
+        }
+
+        F.ap(fa)(f2)
+      }
+    }
   }
 
   sealed trait Traverser[C <: Effects] {
@@ -66,9 +116,35 @@ object Effects {
       def traverse[G[_]: Applicative, A, B](fa: F[A])(f: A => G[B]): G[F[B]] = F.traverse(fa)(f)
     }
 
+    implicit def paheadL[F[_, _], Z](implicit F: Traverse[({ type λ[α] = F[Z, α] })#λ]): Traverser[({ type λ[α] = F[Z, α] })#λ |: Base] = new Traverser[({ type λ[α] = F[Z, α] })#λ |: Base] {
+      def traverse[G[_]: Applicative, A, B](fa: F[Z, A])(f: A => G[B]): G[F[Z, B]] = F.traverse(fa)(f)
+    }
+
+    implicit def paheadR[F[_, _], Z](implicit F: Traverse[({ type λ[α] = F[α, Z] })#λ]): Traverser[({ type λ[α] = F[α, Z] })#λ |: Base] = new Traverser[({ type λ[α] = F[α, Z] })#λ |: Base] {
+      def traverse[G[_]: Applicative, A, B](fa: F[A, Z])(f: A => G[B]): G[F[B, Z]] = F.traverse(fa)(f)
+    }
+
     implicit def corecurse[F[_], C <: Effects](implicit C: Traverser[C], F: Traverse[F]): Traverser[F |: C] = new Traverser[F |: C] {
 
       def traverse[G[_]: Applicative, A, B](fca: F[C#Point[A]])(f: A => G[B]): G[F[C#Point[B]]] = {
+        F.traverse(fca) { ca =>
+          C.traverse(ca)(f)
+        }
+      }
+    }
+
+    implicit def pacorecurseL[F[_, _], Z, C <: Effects](implicit C: Traverser[C], F: Traverse[({ type λ[α] = F[Z, α] })#λ]): Traverser[({ type λ[α] = F[Z, α] })#λ |: C] = new Traverser[({ type λ[α] = F[Z, α] })#λ |: C] {
+
+      def traverse[G[_]: Applicative, A, B](fca: F[Z, C#Point[A]])(f: A => G[B]): G[F[Z, C#Point[B]]] = {
+        F.traverse(fca) { ca =>
+          C.traverse(ca)(f)
+        }
+      }
+    }
+
+    implicit def pacorecurseR[F[_, _], Z, C <: Effects](implicit C: Traverser[C], F: Traverse[({ type λ[α] = F[α, Z] })#λ]): Traverser[({ type λ[α] = F[α, Z] })#λ |: C] = new Traverser[({ type λ[α] = F[α, Z] })#λ |: C] {
+
+      def traverse[G[_]: Applicative, A, B](fca: F[C#Point[A], Z])(f: A => G[B]): G[F[C#Point[B], Z]] = {
         F.traverse(fca) { ca =>
           C.traverse(ca)(f)
         }
@@ -87,11 +163,45 @@ object Effects {
       def join[A](ffa: F[F[A]]) = F.join(ffa)
     }
 
+    implicit def paheadL[F[_, _], Z](implicit F: Bind[({ type λ[α] = F[Z, α] })#λ]): Joiner[({ type λ[α] = F[Z, α] })#λ |: Base] = new Joiner[({ type λ[α] = F[Z, α] })#λ |: Base] {
+      def join[A](ffa: F[Z, F[Z, A]]) = F.join(ffa)
+    }
+
+    implicit def paheadR[F[_, _], Z](implicit F: Bind[({ type λ[α] = F[α, Z] })#λ]): Joiner[({ type λ[α] = F[α, Z] })#λ |: Base] = new Joiner[({ type λ[α] = F[α, Z] })#λ |: Base] {
+      def join[A](ffa: F[F[A, Z], Z]) = F.join(ffa)
+    }
+
     implicit def corecurse[F[_], C <: Effects](implicit C: Joiner[C], T: Traverser[C], F: Applicative[F], B: Bind[F]): Joiner[F |: C] = new Joiner[F |: C] {
 
       def join[A](fcfa: F[C#Point[F[C#Point[A]]]]): F[C#Point[A]] = {
         val ffca = F.map(fcfa) { cfa =>
           F.map(T.traverse(cfa) { fa => fa }) { cca =>
+            C.join(cca)
+          }
+        }
+
+        B.join(ffca)
+      }
+    }
+
+    implicit def pacorecurseL[F[_, _], Z, C <: Effects](implicit C: Joiner[C], T: Traverser[C], F: Applicative[({ type λ[α] = F[Z, α] })#λ], B: Bind[({ type λ[α] = F[Z, α] })#λ]): Joiner[({ type λ[α] = F[Z, α] })#λ |: C] = new Joiner[({ type λ[α] = F[Z, α] })#λ |: C] {
+
+      def join[A](fcfa: F[Z, C#Point[F[Z, C#Point[A]]]]): F[Z, C#Point[A]] = {
+        val ffca = F.map(fcfa) { cfa =>
+          F.map(T.traverse[({ type λ[α] = F[Z, α] })#λ, F[Z, C#Point[A]], C#Point[A]](cfa) { fa => fa }) { cca =>
+            C.join(cca)
+          }
+        }
+
+        B.join(ffca)
+      }
+    }
+
+    implicit def pacorecurseR[F[_, _], Z, C <: Effects](implicit C: Joiner[C], T: Traverser[C], F: Applicative[({ type λ[α] = F[α, Z] })#λ], B: Bind[({ type λ[α] = F[α, Z] })#λ]): Joiner[({ type λ[α] = F[α, Z] })#λ |: C] = new Joiner[({ type λ[α] = F[α, Z] })#λ |: C] {
+
+      def join[A](fcfa: F[C#Point[F[C#Point[A], Z]], Z]): F[C#Point[A], Z] = {
+        val ffca = F.map(fcfa) { cfa =>
+          F.map(T.traverse[({ type λ[α] = F[α, Z] })#λ, F[C#Point[A], Z], C#Point[A]](cfa) { fa => fa }) { cca =>
             C.join(cca)
           }
         }
@@ -209,13 +319,47 @@ object Effects {
       def apply[A](fa: F[A]): F[A] = fa
     }
 
+    implicit def paexactheadL[F[_, _], Z]: Lifter[({ type λ[α] = F[Z, α] })#λ, ({ type λ[α] = F[Z, α] })#λ |: Base] = new Lifter[({ type λ[α] = F[Z, α] })#λ, ({ type λ[α] = F[Z, α] })#λ |: Base] {
+      def apply[A](fa: F[Z, A]): F[Z, A] = fa
+    }
+
+    implicit def paexactheadR[F[_, _], Z]: Lifter[({ type λ[α] = F[α, Z] })#λ, ({ type λ[α] = F[α, Z] })#λ |: Base] = new Lifter[({ type λ[α] = F[α, Z] })#λ, ({ type λ[α] = F[α, Z] })#λ |: Base] {
+      def apply[A](fa: F[A, Z]): F[A, Z] = fa
+    }
+
     implicit def head[F[_], C <: Effects](implicit P: Mapper[C], F: Functor[F]): Lifter[F, F |: C] = new Lifter[F, F |: C] {
       def apply[A](fa: F[A]): F[C#Point[A]] = F.map(fa) { a => P.point(a) }
+    }
+
+    implicit def paheadL[F[_, _], Z, C <: Effects](implicit P: Mapper[C], F: Functor[({ type λ[α] = F[Z, α] })#λ]): Lifter[({ type λ[α] = F[Z, α] })#λ, ({ type λ[α] = F[Z, α] })#λ |: C] = new Lifter[({ type λ[α] = F[Z, α] })#λ, ({ type λ[α] = F[Z, α] })#λ |: C] {
+      def apply[A](fa: F[Z, A]): F[Z, C#Point[A]] = F.map(fa) { a => P.point(a) }
+    }
+
+    implicit def paheadR[F[_, _], Z, C <: Effects](implicit P: Mapper[C], F: Functor[({ type λ[α] = F[α, Z] })#λ]): Lifter[({ type λ[α] = F[α, Z] })#λ, ({ type λ[α] = F[α, Z] })#λ |: C] = new Lifter[({ type λ[α] = F[α, Z] })#λ, ({ type λ[α] = F[α, Z] })#λ |: C] {
+      def apply[A](fa: F[A, Z]): F[C#Point[A], Z] = F.map(fa) { a => P.point(a) }
     }
 
     implicit def corecurse[F[_], G[_], C <: Effects](implicit L: Lifter[F, C], G: Applicative[G]): Lifter[F, G |: C] = new Lifter[F, G |: C] {
       def apply[A](fa: F[A]): G[C#Point[A]] = G.point(L(fa))
     }
+
+    implicit def pacorecurse1L[F[_], G[_, _], Z, C <: Effects](implicit L: Lifter[F, C], G: Applicative[({ type λ[α] = G[Z, α] })#λ]): Lifter[F, ({ type λ[α] = G[Z, α] })#λ |: C] = new Lifter[F, ({ type λ[α] = G[Z, α] })#λ |: C] {
+      def apply[A](fa: F[A]): G[Z, C#Point[A]] = G.point(L(fa))
+    }
+
+    implicit def pacorecurse1R[F[_], G[_, _], Z, C <: Effects](implicit L: Lifter[F, C], G: Applicative[({ type λ[α] = G[α, Z] })#λ]): Lifter[F, ({ type λ[α] = G[α, Z] })#λ |: C] = new Lifter[F, ({ type λ[α] = G[α, Z] })#λ |: C] {
+      def apply[A](fa: F[A]): G[C#Point[A], Z] = G.point(L(fa))
+    }
+
+    implicit def pacorecurseL1[F[_, _], Z, G[_], C <: Effects](implicit L: Lifter[({ type λ[α] = F[Z, α] })#λ, C], G: Applicative[G]): Lifter[({ type λ[α] = F[Z, α] })#λ, G |: C] = new Lifter[({ type λ[α] = F[Z, α] })#λ, G |: C] {
+      def apply[A](fa: F[Z, A]): G[C#Point[A]] = G.point(L(fa))
+    }
+
+    implicit def pacorecurseR1[F[_, _], Z, G[_], C <: Effects](implicit L: Lifter[({ type λ[α] = F[α, Z] })#λ, C], G: Applicative[G]): Lifter[({ type λ[α] = F[α, Z] })#λ, G |: C] = new Lifter[({ type λ[α] = F[α, Z] })#λ, G |: C] {
+      def apply[A](fa: F[A, Z]): G[C#Point[A]] = G.point(L(fa))
+    }
+
+    // TODO need LL, LR, RL, and RR cases, otherwise we don't support adjacent partial application
   }
 
   @implicitNotFound("could not infer effect stack ${C} from type ${E}; either ${C} does not match ${E}, or you have simply run afoul of SI-2712")
