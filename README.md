@@ -36,6 +36,10 @@ val effect: Emm[E, String] = for {
 The above is analogous to monad transformers in many ways.  In fact, we can write the exact same code from above using `OptionT`:
 
 ```scala
+import scalaz._
+import scalaz.concurrent.Task
+import scalaz.syntax.monad._
+
 def readName: Task[String] = ???
 def log(msg: String): Task[Unit] = ???
 
@@ -49,13 +53,19 @@ val effect: OptionT[Task, String] = for {
 } yield name
 ```
 
-The advantages of `Emm` become much more apparent when attempting to stack more than just two monads simultaneously.  For example, one might imagine stacking `Task`, `Option` and right-biased `Either`.  Let's enrich our previous example with some error handling (using kind projector to avoid a type lambda):
+The advantages of `Emm` become much more apparent when attempting to stack more than just two monads simultaneously.  For example, one might imagine stacking `Task`, `Option` and right-biased `Either`.  Let's enrich our previous example with some error handling:
 
 ```scala
+import emm._
+
+import scalaz._
+import scalaz.concurrent.Task
+import scalaz.std.option._
+
 def readName: Task[String] = ???
 def log(msg: String): Task[Unit] = ???
 
-type E = Task |: Either[String, _] |: Option |: Base
+type E = Task |: ({ type λ[α] = String \/ α })#λ |: Option |: Base
 
 val effect: Emm[E, String] = for {
   first <- readName.liftM[E]
@@ -63,7 +73,7 @@ val effect: Emm[E, String] = for {
 
   name <- (if ((first.length * last.length) < 20) Some(s"$first $last") else None).liftM[E]
 
-  _ <- (if (name == "Daniel Spiewak") Left("your kind isn't welcome here") else Right(())).liftM[E]
+  _ <- (if (name == "Daniel Spiewak") -\/("your kind isn't welcome here") else \/-(())).liftM[E]
 
   _ <- log(s"successfully read in $name").liftM[E]
 } yield name
@@ -72,18 +82,28 @@ val effect: Emm[E, String] = for {
 It works as expected, with all the same syntax as before. However, if we look at the same example using monad transformers, a rather distopian picture emerges:
 
 ```scala
+import scalaz._
+import scalaz.concurrent.Task
+import scalaz.syntax.monad._
+
 def readName: Task[String] = ???
 def log(msg: String): Task[Unit] = ???
 
-val effect: OptionT[EitherT[Task, String, _], String] = for {
-  first <- readName.liftM[EitherT[Task, String, _]].liftM[OptionT]
-  last <- readName.liftM[EitherT[Task, String, _]].liftM[OptionT]
+val effect: OptionT[({ type λ[α] = EitherT[Task, String, α] })#λ, String] = for {
+  first <- readName.liftM[({ type λ[α[_], β] = EitherT[α, String, β] })#λ].liftM[OptionT]
+  last <- readName.liftM[({ type λ[α[_], β] = EitherT[α, String, β] })#λ].liftM[OptionT]
 
-  name <- (if ((first.length * last.length) < 20) OptionT.some[EitherT[Task, String, _], String](s"$first $last") else OptionT.none[EitherT[Task, String, _], String])
+  name <- if ((first.length * last.length) < 20)
+    OptionT.some[({ type λ[α] = EitherT[Task, String, α] })#λ, String](s"$first $last")
+  else
+    OptionT.none[({ type λ[α] = EitherT[Task, String, α] })#λ, String]
 
-  _ <- (if (name == "Daniel Spiewak") EitherT.left[Task, String, Unit]("your kind isn't welcome here") else EitherT.right[Task, String, Unit](())).liftM[OptionT]
+  _ <- (if (name == "Daniel Spiewak")
+    EitherT.fromDisjunction[Task](\/.left[String, Unit]("your kind isn't welcome here"))
+  else
+    EitherT.fromDisjunction[Task](\/.right[String, Unit](()))).liftM[OptionT]
 
-  _ <- log(s"successfully read in $name").liftM[EitherT[Task, String, _]].liftM[OptionT]
+  _ <- log(s"successfully read in $name").liftM[({ type λ[α[_], β] = EitherT[α, String, β] })#λ].liftM[OptionT]
 } yield name
 ```
 
