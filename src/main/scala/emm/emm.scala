@@ -153,60 +153,54 @@ object Effects {
   }
 
   @implicitNotFound("could not prove ${C} is a valid monadic stack; perhaps an effect is lacking a Bind, or a non-outer effect is lacking a Traverse")
-  sealed trait Joiner[C <: Effects] {
-    def join[A](cca: C#Point[C#Point[A]]): C#Point[A]
+  sealed trait Binder[C <: Effects] {
+    def bind[A, B](cca: C#Point[A])(f: A => C#Point[B]): C#Point[B]
   }
 
-  object Joiner {
+  object Binder {
 
-    implicit def head[F[_]](implicit F: Bind[F]): Joiner[F |: Base] = new Joiner[F |: Base] {
-      def join[A](ffa: F[F[A]]) = F.join(ffa)
+    implicit def head[F[_]](implicit F: Bind[F]): Binder[F |: Base] = new Binder[F |: Base] {
+      def bind[A, B](fa: F[A])(f: A => F[B]): F[B] = F.bind(fa)(f)
     }
 
-    implicit def paheadL[F[_, _], Z](implicit F: Bind[F[Z, ?]]): Joiner[F[Z, ?] |: Base] = new Joiner[F[Z, ?] |: Base] {
-      def join[A](ffa: F[Z, F[Z, A]]) = F.join(ffa)
+    implicit def paheadL[F[_, _], Z](implicit F: Bind[F[Z, ?]]): Binder[F[Z, ?] |: Base] = new Binder[F[Z, ?] |: Base] {
+      def bind[A, B](fa: F[Z, A])(f: A => F[Z, B]) = F.bind(fa)(f)
     }
 
-    implicit def paheadR[F[_, _], Z](implicit F: Bind[F[?, Z]]): Joiner[F[?, Z] |: Base] = new Joiner[F[?, Z] |: Base] {
-      def join[A](ffa: F[F[A, Z], Z]) = F.join(ffa)
+    implicit def paheadR[F[_, _], Z](implicit F: Bind[F[?, Z]]): Binder[F[?, Z] |: Base] = new Binder[F[?, Z] |: Base] {
+      def bind[A, B](fa: F[A, Z])(f: A => F[B, Z]) = F.bind(fa)(f)
     }
 
-    implicit def corecurse[F[_], C <: Effects](implicit C: Joiner[C], T: Traverser[C], F: Applicative[F], B: Bind[F]): Joiner[F |: C] = new Joiner[F |: C] {
+    implicit def corecurse[F[_], C <: Effects](implicit C: Binder[C], T: Traverser[C], F: Applicative[F], B: Bind[F]): Binder[F |: C] = new Binder[F |: C] {
 
-      def join[A](fcfa: F[C#Point[F[C#Point[A]]]]): F[C#Point[A]] = {
-        val ffca = F.map(fcfa) { cfa =>
-          F.map(T.traverse(cfa) { fa => fa }) { cca =>
-            C.join(cca)
-          }
+      def bind[A, B](fca: F[C#Point[A]])(f: A => F[C#Point[B]]): F[C#Point[B]] = {
+        B.bind(fca) { ca =>
+          val fcaca = T.traverse(ca) { a => f(a) }
+
+          F.map(fcaca) { caca => C.bind(caca) { a => a } }
         }
-
-        B.join(ffca)
       }
     }
 
-    implicit def pacorecurseL[F[_, _], Z, C <: Effects](implicit C: Joiner[C], T: Traverser[C], F: Applicative[F[Z, ?]], B: Bind[F[Z, ?]]): Joiner[F[Z, ?] |: C] = new Joiner[F[Z, ?] |: C] {
+    implicit def pacorecurseL[F[_, _], Z, C <: Effects](implicit C: Binder[C], T: Traverser[C], F: Applicative[F[Z, ?]], B: Bind[F[Z, ?]]): Binder[F[Z, ?] |: C] = new Binder[F[Z, ?] |: C] {
 
-      def join[A](fcfa: F[Z, C#Point[F[Z, C#Point[A]]]]): F[Z, C#Point[A]] = {
-        val ffca = F.map(fcfa) { cfa =>
-          F.map(T.traverse[F[Z, ?], F[Z, C#Point[A]], C#Point[A]](cfa) { fa => fa }) { cca =>
-            C.join(cca)
-          }
+      def bind[A, B](fca: F[Z, C#Point[A]])(f: A => F[Z, C#Point[B]]): F[Z, C#Point[B]] = {
+        B.bind(fca) { ca =>
+          val fcaca = T.traverse[F[Z, ?], A, C#Point[B]](ca) { a => f(a) }
+
+          F.map(fcaca) { caca => C.bind(caca) { a => a } }
         }
-
-        B.join(ffca)
       }
     }
 
-    implicit def pacorecurseR[F[_, _], Z, C <: Effects](implicit C: Joiner[C], T: Traverser[C], F: Applicative[F[?, Z]], B: Bind[F[?, Z]]): Joiner[F[?, Z] |: C] = new Joiner[F[?, Z] |: C] {
+    implicit def pacorecurseR[F[_, _], Z, C <: Effects](implicit C: Binder[C], T: Traverser[C], F: Applicative[F[?, Z]], B: Bind[F[?, Z]]): Binder[F[?, Z] |: C] = new Binder[F[?, Z] |: C] {
 
-      def join[A](fcfa: F[C#Point[F[C#Point[A], Z]], Z]): F[C#Point[A], Z] = {
-        val ffca = F.map(fcfa) { cfa =>
-          F.map(T.traverse[F[?, Z], F[C#Point[A], Z], C#Point[A]](cfa) { fa => fa }) { cca =>
-            C.join(cca)
-          }
+      def bind[A, B](fca: F[C#Point[A], Z])(f: A => F[C#Point[B], Z]): F[C#Point[B], Z] = {
+        B.bind(fca) { ca =>
+          val fcaca = T.traverse[F[?, Z], A, C#Point[B]](ca) { a => f(a) }
+
+          F.map(fcaca) { caca => C.bind(caca) { a => a } }
         }
-
-        B.join(ffca)
       }
     }
   }
@@ -410,10 +404,10 @@ final case class Emm[C <: Effects, A](run: C#Point[A]) {
 
   def map[B](f: A => B)(implicit C: Effects.Mapper[C]): Emm[C, B] = Emm(C.map(run)(f))
 
-  def flatMap[B](f: A => Emm[C, B])(implicit A: Effects.Mapper[C], B: Effects.Joiner[C]): Emm[C, B] =
-    Emm(B.join(A.map(run) { a => f(a).run }))
+  def flatMap[B](f: A => Emm[C, B])(implicit B: Effects.Binder[C]): Emm[C, B] =
+    Emm(B.bind(run) { a => f(a).run })
 
-  def flatMapM[G[_], B](f: A => G[B])(implicit L: Effects.Lifter[G, C], A: Effects.Mapper[C], B: Effects.Joiner[C]): Emm[C, B] =
+  def flatMapM[G[_], B](f: A => G[B])(implicit L: Effects.Lifter[G, C], A: Effects.Mapper[C], B: Effects.Binder[C]): Emm[C, B] =
     flatMap { a => Emm(L(f(a))) }
 
   def expand[G[_], C2 <: Effects](implicit C: Effects.Expander[G, C, C2]): Emm[C2, G[A]] =
@@ -437,7 +431,7 @@ trait EmmLowPriorityImplicits1 {
 trait EmmLowPriorityImplicits2 extends EmmLowPriorityImplicits1 {
   import Effects._
 
-  implicit def monadInstance[C <: Effects : Mapper : Joiner]: Monad[Emm[C, ?]] = new Monad[Emm[C, ?]] {
+  implicit def monadInstance[C <: Effects : Mapper : Binder]: Monad[Emm[C, ?]] = new Monad[Emm[C, ?]] {
 
     def point[A](a: => A): Emm[C, A] = new Emm(implicitly[Mapper[C]].point(a))
 
