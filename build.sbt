@@ -15,6 +15,8 @@ libraryDependencies ++= Seq(
 
   "org.specs2" %% "specs2-core" % "3.6.6" % "test")
 
+scalacOptions += "-language:_"      // I really can't be bothered with SIP-18
+
 scalacOptions in Test += "-Yrangepos"
 
 git.baseVersion := "0.1"
