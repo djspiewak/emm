@@ -53,7 +53,7 @@ val effect: OptionT[Task, String] = for {
 } yield name
 ```
 
-The advantages of `Emm` become much more apparent when attempting to stack more than just two monads simultaneously.  For example, one might imagine stacking `Task`, `Option` and right-biased `Either`.  Let's enrich our previous example with some error handling:
+The advantages of `Emm` become much more apparent when attempting to stack more than just two monads simultaneously.  For example, one might imagine stacking `Task`, `Option` and right-biased `Either`.  Let's enrich our previous example with some error handling (note that I'm using [kind projector](https://github.com/non/kind-projector) to avoid type lambdas):
 
 ```scala
 import emm._
@@ -65,7 +65,7 @@ import scalaz.std.option._
 def readName: Task[String] = ???
 def log(msg: String): Task[Unit] = ???
 
-type E = Task |: ({ type λ[α] = String \/ α })#λ |: Option |: Base
+type E = Task |: String \/ ? |: Option |: Base
 
 val effect: Emm[E, String] = for {
   first <- readName.liftM[E]
@@ -89,21 +89,21 @@ import scalaz.syntax.monad._
 def readName: Task[String] = ???
 def log(msg: String): Task[Unit] = ???
 
-val effect: OptionT[({ type λ[α] = EitherT[Task, String, α] })#λ, String] = for {
-  first <- readName.liftM[({ type λ[α[_], β] = EitherT[α, String, β] })#λ].liftM[OptionT]
-  last <- readName.liftM[({ type λ[α[_], β] = EitherT[α, String, β] })#λ].liftM[OptionT]
+val effect: OptionT[EitherT[Task, String, ?], String] = for {
+  first <- readName.liftM[EitherT[?[_], String, ?]].liftM[OptionT]
+  last <- readName.liftM[(EitherT[?[_], String, ?]].liftM[OptionT]
 
   name <- if ((first.length * last.length) < 20)
-    OptionT.some[({ type λ[α] = EitherT[Task, String, α] })#λ, String](s"$first $last")
+    OptionT.some[EitherT[Task, String, ?], String](s"$first $last")
   else
-    OptionT.none[({ type λ[α] = EitherT[Task, String, α] })#λ, String]
+    OptionT.none[EitherT[Task, String, ?], String]
 
   _ <- (if (name == "Daniel Spiewak")
     EitherT.fromDisjunction[Task](\/.left[String, Unit]("your kind isn't welcome here"))
   else
     EitherT.fromDisjunction[Task](\/.right[String, Unit](()))).liftM[OptionT]
 
-  _ <- log(s"successfully read in $name").liftM[({ type λ[α[_], β] = EitherT[α, String, β] })#λ].liftM[OptionT]
+  _ <- log(s"successfully read in $name").liftM[EitherT[?[_], String, ?]].liftM[OptionT]
 } yield name
 ```
 

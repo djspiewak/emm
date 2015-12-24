@@ -20,8 +20,8 @@ object ApplicativeSpec extends Specification {
       // val A = Emm.applicativeInstance[E]
       // val M = Emm.monadInstance[E]
 
-      val A = Applicative[({ type λ[α] = Emm[E, α] })#λ]
-      val M = Monad[({ type λ[α] = Emm[E, α] })#λ]
+      val A = Applicative[Emm[E, ?]]
+      val M = Monad[Emm[E, ?]]
 
       A.ap(a)(b) mustEqual (M.bind(b) { b => M.map(a)(b) })
       M.ap(a)(b) mustEqual (M.bind(b) { b => M.map(a)(b) })
