@@ -286,6 +286,7 @@ object Effects {
     }
   }
 
+  @implicitNotFound("could not lift effect ${F} into stack ${C}; either ${C} does not contain ${F}, or there is no Functor for either ${F}[${A}, _] or ${F}[_, ${B}]")
   sealed trait Bilifter[F[_, _], A, B, C <: Effects] {
     type Out
 
