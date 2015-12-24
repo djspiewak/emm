@@ -359,7 +359,21 @@ object Effects {
       def apply[A](fa: F[A, Z]): G[C#Point[A]] = G.point(L(fa))
     }
 
-    // TODO need LL, LR, RL, and RR cases, otherwise we don't support adjacent partial application
+    implicit def corecurseLL[F[_, _], ZF, G[_, _], ZG, C <: Effects](implicit L: Lifter[({ type λ[α] = F[ZF, α] })#λ, C], G: Applicative[({ type λ[α] = G[ZG, α] })#λ]): Lifter[({ type λ[α] = F[ZF, α] })#λ, ({ type λ[α] = G[ZG, α] })#λ |: C] = new Lifter[({ type λ[α] = F[ZF, α] })#λ, ({ type λ[α] = G[ZG, α] })#λ |: C] {
+      def apply[A](fa: F[ZF, A]): G[ZG, C#Point[A]] = G.point(L(fa))
+    }
+
+    implicit def corecurseLR[F[_, _], ZF, G[_, _], ZG, C <: Effects](implicit L: Lifter[({ type λ[α] = F[ZF, α] })#λ, C], G: Applicative[({ type λ[α] = G[α, ZG] })#λ]): Lifter[({ type λ[α] = F[ZF, α] })#λ, ({ type λ[α] = G[α, ZG] })#λ |: C] = new Lifter[({ type λ[α] = F[ZF, α] })#λ, ({ type λ[α] = G[α, ZG] })#λ |: C] {
+      def apply[A](fa: F[ZF, A]): G[C#Point[A], ZG] = G.point(L(fa))
+    }
+
+    implicit def corecurseRL[F[_, _], ZF, G[_, _], ZG, C <: Effects](implicit L: Lifter[({ type λ[α] = F[α, ZF] })#λ, C], G: Applicative[({ type λ[α] = G[ZG, α] })#λ]): Lifter[({ type λ[α] = F[α, ZF] })#λ, ({ type λ[α] = G[ZG, α] })#λ |: C] = new Lifter[({ type λ[α] = F[α, ZF] })#λ, ({ type λ[α] = G[ZG, α] })#λ |: C] {
+      def apply[A](fa: F[A, ZF]): G[ZG, C#Point[A]] = G.point(L(fa))
+    }
+
+    implicit def corecurseRR[F[_, _], ZF, G[_, _], ZG, C <: Effects](implicit L: Lifter[({ type λ[α] = F[α, ZF] })#λ, C], G: Applicative[({ type λ[α] = G[α, ZG] })#λ]): Lifter[({ type λ[α] = F[α, ZF] })#λ, ({ type λ[α] = G[α, ZG] })#λ |: C] = new Lifter[({ type λ[α] = F[α, ZF] })#λ, ({ type λ[α] = G[α, ZG] })#λ |: C] {
+      def apply[A](fa: F[A, ZF]): G[C#Point[A], ZG] = G.point(L(fa))
+    }
   }
 
   @implicitNotFound("could not infer effect stack ${C} from type ${E}; either ${C} does not match ${E}, or you have simply run afoul of SI-2712")
