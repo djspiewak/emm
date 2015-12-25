@@ -407,7 +407,7 @@ final case class Emm[C <: Effects, A](run: C#Point[A]) {
   def flatMap[B](f: A => Emm[C, B])(implicit B: Effects.Binder[C]): Emm[C, B] =
     Emm(B.bind(run) { a => f(a).run })
 
-  def flatMapM[G[_], B](f: A => G[B])(implicit L: Effects.Lifter[G, C], A: Effects.Mapper[C], B: Effects.Binder[C]): Emm[C, B] =
+  def flatMapM[G[_], B](f: A => G[B])(implicit L: Effects.Lifter[G, C], B: Effects.Binder[C]): Emm[C, B] =
     flatMap { a => Emm(L(f(a))) }
 
   def expand[G[_], C2 <: Effects](implicit C: Effects.Expander[G, C, C2]): Emm[C2, G[A]] =
