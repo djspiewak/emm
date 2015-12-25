@@ -401,19 +401,20 @@ object Effects {
 
 
 final case class Emm[C <: Effects, A](run: C#Point[A]) {
+  import Effects._
 
-  def map[B](f: A => B)(implicit C: Effects.Mapper[C]): Emm[C, B] = Emm(C.map(run)(f))
+  def map[B](f: A => B)(implicit C: Mapper[C]): Emm[C, B] = Emm(C.map(run)(f))
 
-  def flatMap[B](f: A => Emm[C, B])(implicit B: Effects.Binder[C]): Emm[C, B] =
+  def flatMap[B](f: A => Emm[C, B])(implicit B: Binder[C]): Emm[C, B] =
     Emm(B.bind(run) { a => f(a).run })
 
-  def flatMapM[G[_], B](f: A => G[B])(implicit L: Effects.Lifter[G, C], B: Effects.Binder[C]): Emm[C, B] =
+  def flatMapM[G[_], B](f: A => G[B])(implicit L: Lifter[G, C], B: Binder[C]): Emm[C, B] =
     flatMap { a => Emm(L(f(a))) }
 
-  def expand[G[_], C2 <: Effects](implicit C: Effects.Expander[G, C, C2]): Emm[C2, G[A]] =
+  def expand[G[_], C2 <: Effects](implicit C: Expander[G, C, C2]): Emm[C2, G[A]] =
     Emm(C(run))
 
-  def collapse[G[_], B, C2 <: Effects](implicit ev: A =:= G[B], C: Effects.Collapser[G, C, C2]): Emm[C2, B] =
+  def collapse[G[_], B, C2 <: Effects](implicit ev: A =:= G[B], C: Collapser[G, C, C2]): Emm[C2, B] =
     Emm(C(run.asInstanceOf[C#Point[G[B]]]))     // cast is just to avoid unnecessary mapping
 }
 

@@ -6,7 +6,7 @@ import scalaz._
 import scalaz.std.list._
 import scalaz.std.option._
 
-object ApplicativeSpec extends Specification {
+object ApplicativeSpecs extends Specification {
 
   "derived applicative" should {
     "be consistent with bind in Option |: List" in {
