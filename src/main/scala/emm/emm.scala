@@ -30,22 +30,13 @@ object Effects {
 
   object Mapper {
 
-    implicit def paheadL[F[_, _], Z](implicit F: Applicative[F[Z, ?]]): Mapper[F[Z, ?] |: Base] = new Mapper[F[Z, ?] |: Base] {
+    implicit def pahead[F[_, _], F2[_, _], Z](implicit ev: Permute2[F, F2], F: Applicative[F2[Z, ?]]): Mapper[F2[Z, ?] |: Base] = new Mapper[F2[Z, ?] |: Base] {
 
       def point[A](a: A) = F.point(a)
 
-      def map[A, B](fa: F[Z, A])(f: A => B) = F.map(fa)(f)
+      def map[A, B](fa: F2[Z, A])(f: A => B) = F.map(fa)(f)
 
-      def ap[A, B](fa: F[Z, A])(f: F[Z, A => B]) = F.ap(fa)(f)
-    }
-
-    implicit def paheadR[F[_, _], Z](implicit F: Applicative[F[?, Z]]): Mapper[F[?, Z] |: Base] = new Mapper[F[?, Z] |: Base] {
-
-      def point[A](a: A) = F.point(a)
-
-      def map[A, B](fa: F[A, Z])(f: A => B) = F.map(fa)(f)
-
-      def ap[A, B](fa: F[A, Z])(f: F[A => B, Z]) = F.ap(fa)(f)
+      def ap[A, B](fa: F2[Z, A])(f: F2[Z, A => B]) = F.ap(fa)(f)
     }
 
     implicit def head[F[_]](implicit F: Applicative[F]): Mapper[F |: Base] = new Mapper[F |: Base] {
@@ -73,30 +64,14 @@ object Effects {
       }
     }
 
-    implicit def pacorecurseL[F[_, _], Z, C <: Effects](implicit P: Mapper[C], F: Applicative[F[Z, ?]]): Mapper[F[Z, ?] |: C] = new Mapper[F[Z, ?] |: C] {
+    implicit def pacorecurse[F[_, _], F2[_, _], Z, C <: Effects](implicit ev: Permute2[F, F2], P: Mapper[C], F: Applicative[F2[Z, ?]]): Mapper[F2[Z, ?] |: C] = new Mapper[F2[Z, ?] |: C] {
 
       def point[A](a: A) = F.point(P.point(a))
 
-      def map[A, B](fa: F[Z, C#Point[A]])(f: A => B): F[Z, C#Point[B]] =
+      def map[A, B](fa: F2[Z, C#Point[A]])(f: A => B): F2[Z, C#Point[B]] =
         F.map(fa) { ca => P.map(ca)(f) }
 
-      def ap[A, B](fa: F[Z, C#Point[A]])(f: F[Z, C#Point[A => B]]): F[Z, C#Point[B]] = {
-        val f2 = F.map(f) { cf =>
-          { ca: C#Point[A] => P.ap(ca)(cf) }
-        }
-
-        F.ap(fa)(f2)
-      }
-    }
-
-    implicit def pacorecurseR[F[_, _], Z, C <: Effects](implicit P: Mapper[C], F: Applicative[F[?, Z]]): Mapper[F[?, Z] |: C] = new Mapper[F[?, Z] |: C] {
-
-      def point[A](a: A) = F.point(P.point(a))
-
-      def map[A, B](fa: F[C#Point[A], Z])(f: A => B): F[C#Point[B], Z] =
-        F.map(fa) { ca => P.map(ca)(f) }
-
-      def ap[A, B](fa: F[C#Point[A], Z])(f: F[C#Point[A => B], Z]): F[C#Point[B], Z] = {
+      def ap[A, B](fa: F2[Z, C#Point[A]])(f: F2[Z, C#Point[A => B]]): F2[Z, C#Point[B]] = {
         val f2 = F.map(f) { cf =>
           { ca: C#Point[A] => P.ap(ca)(cf) }
         }
@@ -116,12 +91,8 @@ object Effects {
       def traverse[G[_]: Applicative, A, B](fa: F[A])(f: A => G[B]): G[F[B]] = F.traverse(fa)(f)
     }
 
-    implicit def paheadL[F[_, _], Z](implicit F: Traverse[F[Z, ?]]): Traverser[F[Z, ?] |: Base] = new Traverser[F[Z, ?] |: Base] {
-      def traverse[G[_]: Applicative, A, B](fa: F[Z, A])(f: A => G[B]): G[F[Z, B]] = F.traverse(fa)(f)
-    }
-
-    implicit def paheadR[F[_, _], Z](implicit F: Traverse[F[?, Z]]): Traverser[F[?, Z] |: Base] = new Traverser[F[?, Z] |: Base] {
-      def traverse[G[_]: Applicative, A, B](fa: F[A, Z])(f: A => G[B]): G[F[B, Z]] = F.traverse(fa)(f)
+    implicit def pahead[F[_, _], F2[_, _], Z](implicit ev: Permute2[F, F2], F: Traverse[F2[Z, ?]]): Traverser[F2[Z, ?] |: Base] = new Traverser[F2[Z, ?] |: Base] {
+      def traverse[G[_]: Applicative, A, B](fa: F2[Z, A])(f: A => G[B]): G[F2[Z, B]] = F.traverse(fa)(f)
     }
 
     implicit def corecurse[F[_], C <: Effects](implicit C: Traverser[C], F: Traverse[F]): Traverser[F |: C] = new Traverser[F |: C] {
@@ -133,18 +104,9 @@ object Effects {
       }
     }
 
-    implicit def pacorecurseL[F[_, _], Z, C <: Effects](implicit C: Traverser[C], F: Traverse[F[Z, ?]]): Traverser[F[Z, ?] |: C] = new Traverser[F[Z, ?] |: C] {
+    implicit def pacorecurse[F[_, _], F2[_, _], Z, C <: Effects](implicit ev: Permute2[F, F2], C: Traverser[C], F: Traverse[F2[Z, ?]]): Traverser[F2[Z, ?] |: C] = new Traverser[F2[Z, ?] |: C] {
 
-      def traverse[G[_]: Applicative, A, B](fca: F[Z, C#Point[A]])(f: A => G[B]): G[F[Z, C#Point[B]]] = {
-        F.traverse(fca) { ca =>
-          C.traverse(ca)(f)
-        }
-      }
-    }
-
-    implicit def pacorecurseR[F[_, _], Z, C <: Effects](implicit C: Traverser[C], F: Traverse[F[?, Z]]): Traverser[F[?, Z] |: C] = new Traverser[F[?, Z] |: C] {
-
-      def traverse[G[_]: Applicative, A, B](fca: F[C#Point[A], Z])(f: A => G[B]): G[F[C#Point[B], Z]] = {
+      def traverse[G[_]: Applicative, A, B](fca: F2[Z, C#Point[A]])(f: A => G[B]): G[F2[Z, C#Point[B]]] = {
         F.traverse(fca) { ca =>
           C.traverse(ca)(f)
         }
@@ -163,12 +125,8 @@ object Effects {
       def bind[A, B](fa: F[A])(f: A => F[B]): F[B] = F.bind(fa)(f)
     }
 
-    implicit def paheadL[F[_, _], Z](implicit F: Bind[F[Z, ?]]): Binder[F[Z, ?] |: Base] = new Binder[F[Z, ?] |: Base] {
-      def bind[A, B](fa: F[Z, A])(f: A => F[Z, B]) = F.bind(fa)(f)
-    }
-
-    implicit def paheadR[F[_, _], Z](implicit F: Bind[F[?, Z]]): Binder[F[?, Z] |: Base] = new Binder[F[?, Z] |: Base] {
-      def bind[A, B](fa: F[A, Z])(f: A => F[B, Z]) = F.bind(fa)(f)
+    implicit def pahead[F[_, _], F2[_, _], Z](implicit ev: Permute2[F, F2], F: Bind[F2[Z, ?]]): Binder[F2[Z, ?] |: Base] = new Binder[F2[Z, ?] |: Base] {
+      def bind[A, B](fa: F2[Z, A])(f: A => F2[Z, B]) = F.bind(fa)(f)
     }
 
     implicit def corecurse[F[_], C <: Effects](implicit C: Binder[C], T: Traverser[C], F: Applicative[F], B: Bind[F]): Binder[F |: C] = new Binder[F |: C] {
@@ -182,22 +140,11 @@ object Effects {
       }
     }
 
-    implicit def pacorecurseL[F[_, _], Z, C <: Effects](implicit C: Binder[C], T: Traverser[C], F: Applicative[F[Z, ?]], B: Bind[F[Z, ?]]): Binder[F[Z, ?] |: C] = new Binder[F[Z, ?] |: C] {
+    implicit def pacorecurse[F[_, _], F2[_, _], Z, C <: Effects](implicit ev: Permute2[F, F2], C: Binder[C], T: Traverser[C], F: Applicative[F2[Z, ?]], B: Bind[F2[Z, ?]]): Binder[F2[Z, ?] |: C] = new Binder[F2[Z, ?] |: C] {
 
-      def bind[A, B](fca: F[Z, C#Point[A]])(f: A => F[Z, C#Point[B]]): F[Z, C#Point[B]] = {
+      def bind[A, B](fca: F2[Z, C#Point[A]])(f: A => F2[Z, C#Point[B]]): F2[Z, C#Point[B]] = {
         B.bind(fca) { ca =>
-          val fcaca = T.traverse[F[Z, ?], A, C#Point[B]](ca) { a => f(a) }
-
-          F.map(fcaca) { caca => C.bind(caca) { a => a } }
-        }
-      }
-    }
-
-    implicit def pacorecurseR[F[_, _], Z, C <: Effects](implicit C: Binder[C], T: Traverser[C], F: Applicative[F[?, Z]], B: Bind[F[?, Z]]): Binder[F[?, Z] |: C] = new Binder[F[?, Z] |: C] {
-
-      def bind[A, B](fca: F[C#Point[A], Z])(f: A => F[C#Point[B], Z]): F[C#Point[B], Z] = {
-        B.bind(fca) { ca =>
-          val fcaca = T.traverse[F[?, Z], A, C#Point[B]](ca) { a => f(a) }
+          val fcaca = T.traverse[F2[Z, ?], A, C#Point[B]](ca) { a => f(a) }
 
           F.map(fcaca) { caca => C.bind(caca) { a => a } }
         }
@@ -314,60 +261,32 @@ object Effects {
       def apply[A](fa: F[A]): F[A] = fa
     }
 
-    implicit def paexactheadL[F[_, _], Z]: Lifter[F[Z, ?], F[Z, ?] |: Base] = new Lifter[F[Z, ?], F[Z, ?] |: Base] {
-      def apply[A](fa: F[Z, A]): F[Z, A] = fa
-    }
-
-    implicit def paexactheadR[F[_, _], Z]: Lifter[F[?, Z], F[?, Z] |: Base] = new Lifter[F[?, Z], F[?, Z] |: Base] {
-      def apply[A](fa: F[A, Z]): F[A, Z] = fa
+    implicit def paexacthead[F[_, _], Z, G[_, _]](implicit ev: Permute2[F, G]): Lifter[G[Z, ?], G[Z, ?] |: Base] = new Lifter[G[Z, ?], G[Z, ?] |: Base] {
+      def apply[A](fa: G[Z, A]): G[Z, A] = fa
     }
 
     implicit def head[F[_], C <: Effects](implicit P: Mapper[C], F: Functor[F]): Lifter[F, F |: C] = new Lifter[F, F |: C] {
       def apply[A](fa: F[A]): F[C#Point[A]] = F.map(fa) { a => P.point(a) }
     }
 
-    implicit def paheadL[F[_, _], Z, C <: Effects](implicit P: Mapper[C], F: Functor[F[Z, ?]]): Lifter[F[Z, ?], F[Z, ?] |: C] = new Lifter[F[Z, ?], F[Z, ?] |: C] {
-      def apply[A](fa: F[Z, A]): F[Z, C#Point[A]] = F.map(fa) { a => P.point(a) }
-    }
-
-    implicit def paheadR[F[_, _], Z, C <: Effects](implicit P: Mapper[C], F: Functor[F[?, Z]]): Lifter[F[?, Z], F[?, Z] |: C] = new Lifter[F[?, Z], F[?, Z] |: C] {
-      def apply[A](fa: F[A, Z]): F[C#Point[A], Z] = F.map(fa) { a => P.point(a) }
+    implicit def pahead[F[_, _], Z, G[_, _], C <: Effects](implicit ev: Permute2[F, G], P: Mapper[C], F: Functor[G[Z, ?]]): Lifter[G[Z, ?], G[Z, ?] |: C] = new Lifter[G[Z, ?], G[Z, ?] |: C] {
+      def apply[A](fa: G[Z, A]): G[Z, C#Point[A]] = F.map(fa) { a => P.point(a) }
     }
 
     implicit def corecurse[F[_], G[_], C <: Effects](implicit L: Lifter[F, C], G: Applicative[G]): Lifter[F, G |: C] = new Lifter[F, G |: C] {
       def apply[A](fa: F[A]): G[C#Point[A]] = G.point(L(fa))
     }
 
-    implicit def pacorecurse1L[F[_], G[_, _], Z, C <: Effects](implicit L: Lifter[F, C], G: Applicative[G[Z, ?]]): Lifter[F, G[Z, ?] |: C] = new Lifter[F, G[Z, ?] |: C] {
-      def apply[A](fa: F[A]): G[Z, C#Point[A]] = G.point(L(fa))
+    implicit def pacorecurseG[F[_], G[_, _], G2[_, _], Z, C <: Effects](implicit evG: Permute2[G, G2], L: Lifter[F, C], G: Applicative[G2[Z, ?]]): Lifter[F, G2[Z, ?] |: C] = new Lifter[F, G2[Z, ?] |: C] {
+      def apply[A](fa: F[A]): G2[Z, C#Point[A]] = G.point(L(fa))
     }
 
-    implicit def pacorecurse1R[F[_], G[_, _], Z, C <: Effects](implicit L: Lifter[F, C], G: Applicative[G[?, Z]]): Lifter[F, G[?, Z] |: C] = new Lifter[F, G[?, Z] |: C] {
-      def apply[A](fa: F[A]): G[C#Point[A], Z] = G.point(L(fa))
+    implicit def pacorecurseF[F[_, _], F2[_, _], Z, G[_], C <: Effects](implicit evF: Permute2[F, F2], L: Lifter[F2[Z, ?], C], G: Applicative[G]): Lifter[F2[Z, ?], G |: C] = new Lifter[F2[Z, ?], G |: C] {
+      def apply[A](fa: F2[Z, A]): G[C#Point[A]] = G.point(L(fa))
     }
 
-    implicit def pacorecurseL1[F[_, _], Z, G[_], C <: Effects](implicit L: Lifter[F[Z, ?], C], G: Applicative[G]): Lifter[F[Z, ?], G |: C] = new Lifter[F[Z, ?], G |: C] {
-      def apply[A](fa: F[Z, A]): G[C#Point[A]] = G.point(L(fa))
-    }
-
-    implicit def pacorecurseR1[F[_, _], Z, G[_], C <: Effects](implicit L: Lifter[F[?, Z], C], G: Applicative[G]): Lifter[F[?, Z], G |: C] = new Lifter[F[?, Z], G |: C] {
-      def apply[A](fa: F[A, Z]): G[C#Point[A]] = G.point(L(fa))
-    }
-
-    implicit def corecurseLL[F[_, _], ZF, G[_, _], ZG, C <: Effects](implicit L: Lifter[F[ZF, ?], C], G: Applicative[G[ZG, ?]]): Lifter[F[ZF, ?], G[ZG, ?] |: C] = new Lifter[F[ZF, ?], G[ZG, ?] |: C] {
-      def apply[A](fa: F[ZF, A]): G[ZG, C#Point[A]] = G.point(L(fa))
-    }
-
-    implicit def corecurseLR[F[_, _], ZF, G[_, _], ZG, C <: Effects](implicit L: Lifter[F[ZF, ?], C], G: Applicative[G[?, ZG]]): Lifter[F[ZF, ?], G[?, ZG] |: C] = new Lifter[F[ZF, ?], G[?, ZG] |: C] {
-      def apply[A](fa: F[ZF, A]): G[C#Point[A], ZG] = G.point(L(fa))
-    }
-
-    implicit def corecurseRL[F[_, _], ZF, G[_, _], ZG, C <: Effects](implicit L: Lifter[F[?, ZF], C], G: Applicative[G[ZG, ?]]): Lifter[F[?, ZF], G[ZG, ?] |: C] = new Lifter[F[?, ZF], G[ZG, ?] |: C] {
-      def apply[A](fa: F[A, ZF]): G[ZG, C#Point[A]] = G.point(L(fa))
-    }
-
-    implicit def corecurseRR[F[_, _], ZF, G[_, _], ZG, C <: Effects](implicit L: Lifter[F[?, ZF], C], G: Applicative[G[?, ZG]]): Lifter[F[?, ZF], G[?, ZG] |: C] = new Lifter[F[?, ZF], G[?, ZG] |: C] {
-      def apply[A](fa: F[A, ZF]): G[C#Point[A], ZG] = G.point(L(fa))
+    implicit def corecurseFG[F[_, _], F2[_, _], ZF, G[_, _], G2[_, _], ZG, C <: Effects](implicit evF: Permute2[F, F2], evG: Permute2[G, G2], L: Lifter[F2[ZF, ?], C], G: Applicative[G2[ZG, ?]]): Lifter[F2[ZF, ?], G2[ZG, ?] |: C] = new Lifter[F2[ZF, ?], G2[ZG, ?] |: C] {
+      def apply[A](fa: F2[ZF, A]): G2[ZG, C#Point[A]] = G.point(L(fa))
     }
   }
 
