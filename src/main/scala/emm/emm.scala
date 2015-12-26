@@ -489,6 +489,34 @@ object Effects {
     }
   }
 
+  sealed trait ArbLifter[E, C <: Effects] {
+    type Out
+
+    def apply(e: E): C#Point[Out]
+  }
+
+  object ArbLifter {
+    type Aux[E, C <: Effects, Out0] = ArbLifter[E, C] { type Out = Out0 }
+
+    implicit def lifter[F[_], A, C <: Effects](implicit L: Lifter[F, C]): ArbLifter.Aux[F[A], C, A] = new ArbLifter[F[A], C] {
+      type Out = A
+
+      def apply(fa: F[A]) = L(fa)
+    }
+
+    implicit def bilifter[F[_, _], A, B, C <: Effects](implicit L: Bilifter[F, A, B, C]): ArbLifter.Aux[F[A, B], C, L.Out] = new ArbLifter[F[A, B], C] {
+      type Out = L.Out
+
+      def apply(fa: F[A, B]) = L(fa)
+    }
+
+    implicit def hbilifter[F[_[_], _], G[_], A, C <: Effects](implicit L: HBilifter[F, G, C]): ArbLifter.Aux[F[G, A], C, A] = new ArbLifter[F[G, A], C] {
+      type Out = A
+
+      def apply(fa: F[G, A]) = L(fa)
+    }
+  }
+
   @implicitNotFound("could not infer effect stack ${C} from type ${E}")
   sealed trait Wrapper[E, C <: Effects] {
     type A
@@ -540,8 +568,8 @@ final case class Emm[C <: Effects, A](run: C#Point[A]) {
   def flatMap[B](f: A => Emm[C, B])(implicit B: Binder[C]): Emm[C, B] =
     Emm(B.bind(run) { a => f(a).run })
 
-  def flatMapM[G[_], B](f: A => G[B])(implicit L: Lifter[G, C], B: Binder[C]): Emm[C, B] =
-    flatMap { a => Emm(L(f(a))) }
+  def flatMapM[E](f: A => E)(implicit E: ArbLifter[E, C], B: Binder[C]): Emm[C, E.Out] =
+    flatMap { a => Emm(E(f(a))) }
 
   def expand(implicit C: Expander[C]): Emm[C.Out, C.CC[A]] = Emm(C(run))
 

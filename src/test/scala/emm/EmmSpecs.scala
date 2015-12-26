@@ -182,6 +182,35 @@ object EmmSpecs extends Specification {
 
       e3 mustEqual Emm[E, Int](List(None, Some(2), Some(2), None, Some(4), Some(4)))
     }
+
+    "allow flatMapM on a stack containing an arity-2 constructor" in {
+      type E = List |: (String \/ ?) |: Base
+
+      val e1 = List(1, 2, 3, 4).liftM[E]
+      val e2 = e1 flatMapM { v => if (v % 2 == 0) \/-(v) else -\/("that's... odd") }
+      val e3 = e2 flatMapM { v => List(v, v) }
+
+      e3 mustEqual Emm[E, Int](List(-\/("that's... odd"), \/-(2), \/-(2), -\/("that's... odd"), \/-(4), \/-(4)))
+    }
+
+    "allow flatMapM on a stack containing a higher-order arity-2 constructor" in {
+      type E = List |: Free[Option, ?] |: Base
+
+      val e1 = List(1, 2, 3, 4).liftM[E]
+      val e2 = e1 flatMapM { v => if (v % 2 == 0) Free.point[Option, Int](v) else Free.liftF[Option, Int](None) }
+      val e3 = e2 flatMapM { v => List(v, v) }
+
+      e3.run must beLike {
+        case List(f1, f2, f3, f4, f5, f6) => {
+          f1.runM(identity) mustEqual None
+          f2.runM(identity) mustEqual Some(2)
+          f3.runM(identity) mustEqual Some(2)
+          f4.runM(identity) mustEqual None
+          f5.runM(identity) mustEqual Some(4)
+          f6.runM(identity) mustEqual Some(4)
+        }
+      }
+    }
   }
 
   "non-traversable effect composition" should {
