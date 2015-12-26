@@ -188,3 +188,54 @@ val effect2 = effect map { _ * 2 }          // no problemo!
 ```
 
 Even though our effect stack is sort of bogus, it's only bogus if we attempt to treat it *as a monad*.  It's a perfectly valid applicative functor, and we can treat it as such.  In other words, `flatMap` doesn't work (and shouldn't work!) on some effect stacks, but `map` works on any effect stack where each component effect has a `Functor`.
+
+## Limitations
+
+Maybe this section should be nearer to the top...  Oh well.
+
+The most significant limitation of this approach is caused by everyone's favorite limitation of the scalac type checker, [SI-2712](https://issues.scala-lang.org/browse/SI-2712).  The good news is that this bug is not a complete show stopper; it's relatively easy to work around when you control the entire stack of type signatures (as I do here) and you're not trying to generalize over different type constructor arities.  The bad news is that it makes my life very difficult, and it imposes some pretty hard limits (also related to how much boilerplate I'm willing to type out) on what sorts of type constructors do and do not work with `Emm`.
+
+Specifically, the following *kinds* of type constructors are accepted (i.e. will be fully functional in any position of an effect stack):
+
+- `* -> *` – Examples: `Option`, `List`, `Task`
+- `* x * -> *` – Examples: `Either`, `State` (with caveats), `Writer` (more caveats), `Reader` (sorry, still caveated)
+- `(* -> *) x * -> *` – Examples: `Free`, `OptionT`, `ListT`, `StreamT`
+
+First off, the examples in the higher-order entry (such as `ListT`) are not a typo.  You can (sort of) freely mix monad transformers and `Emm`, though I can only think of one reason why you would want to: effects implemented as transformers on the `Identity` monad.  These implementations are the bane of my existence, but unfortunately they are extremely common due to the nature of scalaz's (and cats') design.
+
+For example, let's imagine that we wanted to compose the `StreamT` effect with `Emm`.  We obviously don't care about the fact that `StreamT` can act as a transformer, since `Emm` handles that for us, so we define a new type alias:
+
+```scala
+type Stream[A] = StreamT[Identity, A]
+```
+
+Seems reasonable.  Now, it would be *intuitive* to expect that this puts us into the `* -> *` case from above, but surprisingly scalac does not agree!  Basically, scalac's type inference algorithm expands fully fixed type aliases (i.e. non-dependent stuff) *before* it solves any expressions, which means that the following will fail to compile:
+
+```scala
+def foo[F[_], A](fa: F[A]) = fa
+
+val xs: Stream[A] = ???
+
+foo(xs)       // boom!
+```
+
+It doesn't work, because scalac is looking for something of kind `* -> *` and it finds something of kind `(* -> *) -> * -> *`: namely, `StreamT`.  The fact that what it finds has *already* been partially-applied on `Identity` is irrelevant, since no part of scalac's type inference really understands partial application at the type level.  Most people who run into SI-2712 do so through this avenue.  Basically, scalac is going to drill down *all the way* to the "base type", which is generally-speaking either a dependent type, a class or a trait.  The form of *that* type is what matters.
+
+What does this have to do with us?  Well, it's easier to see if we look at `State`.  Remember, the `State` monad *in theory* has the following signature:
+
+```scala
+class State[S, A](f: S => (S, A))
+```
+
+Unfortunately, neither scalaz nor cats define their `State` monad in this way.  Scalaz is particularly egregious, since `State` is defined in terms of not one but *two* partial applications:
+
+```scala
+type State[S, A] = StateT[Id, S, A]
+type StateT[F[_], S, A] = IndexedStateT[F, S, S, A]
+```
+
+Dear god, what is `IndexedStateT`??  No one really knows, but it's highly inconvenient.  You'll notice that the kind of `IndexedStateT` (the base type) is `(* -> *) x * x * x * -> *`, which is not on our list!  So in other words, `State` is *not* supported as an effect in `Emm`, and you will get some generally annoying errors if you try to use it.
+
+The good news is that overcoming these limitations is largely a matter of typing, albeit a *lot* of typing.  It's certainly possible to enable support for `State` (and similarly-defined effects), but I haven't done it yet because the work involved is both significant and boring.  In the meantime, only effects with a base type who's kind is on the list above are supported by `Emm`.
+
+Moral of the story: library authors, newtype your effects!  It makes everyone's lives easier.
