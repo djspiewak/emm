@@ -19,7 +19,7 @@ sealed trait Base extends Effects {
 object Effects {
 
   @implicitNotFound("could not compute a method for mapping over effect stack ${C}; either a member of the stack lacks an Applicative, or its Applicative instance is ambiguous")
-  sealed trait Mapper[C <: Effects] {
+  trait Mapper[C <: Effects] {
 
     def point[A](a: A): C#Point[A]
 
@@ -106,7 +106,7 @@ object Effects {
     }
   }
 
-  sealed trait Traverser[C <: Effects] {
+  trait Traverser[C <: Effects] {
     def traverse[G[_]: Applicative, A, B](ca: C#Point[A])(f: A => G[B]): G[C#Point[B]]
   }
 
@@ -153,7 +153,7 @@ object Effects {
   }
 
   @implicitNotFound("could not prove ${C} is a valid monadic stack; perhaps an effect is lacking a Bind, or a non-outer effect is lacking a Traverse")
-  sealed trait Binder[C <: Effects] {
+  trait Binder[C <: Effects] {
     def bind[A, B](cca: C#Point[A])(f: A => C#Point[B]): C#Point[B]
   }
 
@@ -205,7 +205,7 @@ object Effects {
     }
   }
 
-  sealed trait Expander[C <: Effects] {
+  trait Expander[C <: Effects] {
     type CC[_]
     type Out <: Effects
 
@@ -261,7 +261,7 @@ object Effects {
     }
   }
 
-  sealed trait Collapser[E, C <: Effects] {
+  trait Collapser[E, C <: Effects] {
     type A
     type Out <: Effects
 
@@ -320,7 +320,7 @@ object Effects {
     }
   }
 
-  sealed trait LeftBilifter[F[_, _], B, C <: Effects] {
+  trait LeftBilifter[F[_, _], B, C <: Effects] {
     def apply[A](fa: F[A, B]): C#Point[A]
   }
 
@@ -347,7 +347,7 @@ object Effects {
     }
   }
 
-  sealed trait RightBilifter[F[_, _], B, C <: Effects] {
+  trait RightBilifter[F[_, _], B, C <: Effects] {
     def apply[A](fa: F[B, A]): C#Point[A]
   }
 
@@ -375,7 +375,7 @@ object Effects {
   }
 
   @implicitNotFound("could not lift effect ${F} into stack ${C}; either ${C} does not contain ${F}, or there is no Functor for either ${F}[${A}, ?] or ${F}[?, ${B}]")
-  sealed trait Bilifter[F[_, _], A, B, C <: Effects] {
+  trait Bilifter[F[_, _], A, B, C <: Effects] {
     type Out
 
     def apply(fa: F[A, B]): C#Point[Out]
@@ -398,7 +398,7 @@ object Effects {
   }
 
   @implicitNotFound("could not lift effect ${F}[${G}, ?] into stack ${C}; either ${C} does not contain ${F}, or there is no functor for ${F}[${G}, ?]")
-  sealed trait HBilifter[F[_[_], _], G[_], C <: Effects] {
+  trait HBilifter[F[_[_], _], G[_], C <: Effects] {
     def apply[A](fa: F[G, A]): C#Point[A]
   }
 
@@ -426,7 +426,7 @@ object Effects {
   }
 
   @implicitNotFound("could not lift effect ${F} into stack ${C}; either ${C} does not contain ${F}, or there is no Functor for ${F}")
-  sealed trait Lifter[F[_], C <: Effects] {
+  trait Lifter[F[_], C <: Effects] {
     def apply[A](fa: F[A]): C#Point[A]
   }
 
@@ -489,7 +489,7 @@ object Effects {
     }
   }
 
-  sealed trait ArbLifter[E, C <: Effects] {
+  trait ArbLifter[E, C <: Effects] {
     type Out
 
     def apply(e: E): C#Point[Out]
@@ -518,7 +518,7 @@ object Effects {
   }
 
   @implicitNotFound("could not infer effect stack ${C} from type ${E}")
-  sealed trait Wrapper[E, C <: Effects] {
+  trait Wrapper[E, C <: Effects] {
     type A
 
     def apply(e: E): C#Point[A]
