@@ -33,10 +33,19 @@ object EmmSpecs extends Specification {
     }
 
     "lift into a stack that contains a type lambda" in {
-      type E = Option |: ({ type λ[α] = String \/ α })#λ |: Base
+      "right" >> {
+        type E = Option |: ({ type λ[α] = String \/ α })#λ |: Base
 
-      \/.right[String, Int](42).liftM[E] mustEqual Emm[E, Int](Option(\/-(42)))
-      \/.left[String, Int]("fuuuuuu").liftM[E] mustEqual Emm[E, Int](Option(-\/("fuuuuuu")))
+        \/.right[String, Int](42).liftM[E] mustEqual Emm[E, Int](Option(\/-(42)))
+        \/.left[String, Int]("fuuuuuu").liftM[E] mustEqual Emm[E, Int](Option(-\/("fuuuuuu")))
+      }
+
+      "left" >> {
+        type E = ({ type λ[α] = String \/ α })#λ |: Option |: Base
+
+        \/.right[String, Int](42).liftM[E] mustEqual Emm[E, Int](\/-(Option(42)))
+        \/.left[String, Int]("fuuuuuu").liftM[E] mustEqual Emm[E, Int](-\/("fuuuuuu"))
+      }
     }
 
     "allow wrapping of two paired constructors" in {
@@ -60,6 +69,22 @@ object EmmSpecs extends Specification {
       } yield v2
 
       e mustEqual Emm[E, Int](List(None, Some(2), None, Some(4)))
+    }
+
+    "bind over a stack that contains a type lambda" in {
+      "right" >> {
+        type E = Option |: ({ type λ[α] = String \/ α })#λ |: Base
+
+        42.pointM[({ type λ[α] = String \/ α })#λ |: Base](Effects.Mapper.pahead)
+
+        42.pointM[E] flatMap { _ => "foo".pointM[E] } mustEqual Emm[E, String](Option(\/-("foo")))
+      }
+
+      "left" >> {
+        type E = ({ type λ[α] = String \/ α })#λ |: Option |: Base
+
+        42.pointM[E] flatMap { _ => "foo".pointM[E] } mustEqual Emm[E, String](\/-(Option("foo")))
+      }
     }
 
     "enable flatMapM in any direction" in {
