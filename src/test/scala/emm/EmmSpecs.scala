@@ -33,10 +33,19 @@ object EmmSpecs extends Specification {
     }
 
     "lift into a stack that contains a type lambda" in {
-      type E = Option |: ({ type λ[α] = String \/ α })#λ |: Base
+      "inner" >> {
+        type E = Option |: (String \/ ?) |: Base
 
-      \/.right[String, Int](42).liftM[E] mustEqual Emm[E, Int](Option(\/-(42)))
-      \/.left[String, Int]("fuuuuuu").liftM[E] mustEqual Emm[E, Int](Option(-\/("fuuuuuu")))
+        \/.right[String, Int](42).liftM[E] mustEqual Emm[E, Int](Option(\/-(42)))
+        \/.left[String, Int]("fuuuuuu").liftM[E] mustEqual Emm[E, Int](Option(-\/("fuuuuuu")))
+      }
+
+      "outer" >> {
+        type E = (String \/ ?) |: Option |: Base
+
+        \/.right[String, Int](42).liftM[E] mustEqual Emm[E, Int](\/-(Option(42)))
+        \/.left[String, Int]("fuuuuuu").liftM[E] mustEqual Emm[E, Int](-\/("fuuuuuu"))
+      }
     }
 
     "allow wrapping of two paired constructors" in {
