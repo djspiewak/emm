@@ -95,6 +95,38 @@ object EmmSpecs extends Specification {
       Option(List(42)).wrapM[Option |: List |: Base] must haveType[Emm[Option |: List |: Base, Int]].attempt
     }
 
+    "allow wrapping of two paired constructors where one has arity-2" in {
+      "inner" >> {
+        type E = Option |: (String \/ ?) |: Base
+
+        Option(\/.right[String, Int](42)).wrapM must haveType[Emm[Option |: (String \/ ?) |: Base, Int]].attempt
+        Option(\/.right[String, Int](42)).wrapM[E] must haveType[Emm[Option |: (String \/ ?) |: Base, Int]].attempt
+      }
+
+      "outer" >> {
+        type E = (String \/ ?) |: Option |: Base
+
+        \/.right[String, Option[Int]](Option(42)).wrapM must haveType[Emm[(String \/ ?) |: Option |: Base, Int]].attempt
+        \/.right[String, Option[Int]](Option(42)).wrapM[E] must haveType[Emm[(String \/ ?) |: Option |: Base, Int]].attempt
+      }
+    }
+
+    "allow wrapping of two paired constructors where one is higher-order and has arity-2" in {
+      "inner" >> {
+        type E = Option |: Free[List, ?] |: Base
+
+        Option(Free.point[List, Int](42)).wrapM must haveType[Emm[Option |: Free[List, ?] |: Base, Int]].attempt
+        Option(Free.point[List, Int](42)).wrapM[E] must haveType[Emm[Option |: Free[List, ?] |: Base, Int]].attempt
+      }
+
+      "outer" >> {
+        type E = Free[List, ?] |: Option |: Base
+
+        Free.point[List, Option[Int]](Option(42)).wrapM must haveType[Emm[Free[List, ?] |: Option |: Base, Int]].attempt
+        Free.point[List, Option[Int]](Option(42)).wrapM[E] must haveType[Emm[Free[List, ?] |: Option |: Base, Int]].attempt
+      }
+    }
+
     "allow mapping" in {
       val opt: Option[Int] = Some(42)
       val e = opt.liftM[List |: Option |: Base]

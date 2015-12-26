@@ -411,7 +411,7 @@ object Effects {
     }
   }
 
-  @implicitNotFound("could not infer effect stack ${C} from type ${E}; either ${C} does not match ${E}, or you have simply run afoul of SI-2712")
+  @implicitNotFound("could not infer effect stack ${C} from type ${E}")
   sealed trait Wrapper[E, C <: Effects] {
     type A
 
@@ -435,6 +435,20 @@ object Effects {
 
       def apply(fe: F[E]): F[C#Point[A]] =
         fe.asInstanceOf[F[C#Point[A]]]      // already proven equivalent; actual evaluation requires a Functor
+    }
+
+    implicit def pacorecurse[F[_, _], F2[_, _], Z, E, C <: Effects, A0](implicit ev: Permute2[F, F2], W: Wrapper.Aux[E, C, A0]): Wrapper.Aux[F2[Z, E], F2[Z, ?] |: C, A0] = new Wrapper[F2[Z, E], F2[Z, ?] |: C] {
+      type A = A0
+
+      def apply(fe: F2[Z, E]): F2[Z, C#Point[A]] =
+        fe.asInstanceOf[F2[Z, C#Point[A]]]
+    }
+
+    implicit def corecurseH[F[_[_], _], G[_], E, C <: Effects, A0](implicit W: Wrapper.Aux[E, C, A0]): Wrapper.Aux[F[G, E], F[G, ?] |: C, A0] = new Wrapper[F[G, E], F[G, ?] |: C] {
+      type A = A0
+
+      def apply(fe: F[G, E]): F[G, C#Point[A]] =
+        fe.asInstanceOf[F[G, C#Point[A]]]      // already proven equivalent; actual evaluation requires a Functor
     }
   }
 }
