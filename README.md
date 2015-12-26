@@ -65,7 +65,7 @@ import scalaz.std.option._
 def readName: Task[String] = ???
 def log(msg: String): Task[Unit] = ???
 
-type E = Task |: String \/ ? |: Option |: Base
+type E = Task |: (String \/ ?) |: Option |: Base
 
 val effect: Emm[E, String] = for {
   first <- readName.liftM[E]
