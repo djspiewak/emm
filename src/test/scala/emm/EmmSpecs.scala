@@ -32,7 +32,7 @@ object EmmSpecs extends Specification {
       (Task now 42).liftM[E].run.run mustEqual List(Option(42))
     }
 
-    "lift into a stack that contains a type lambda" in {
+    "lift into a stack that contains a partially-applied arity-2 constructor" in {
       "inner" >> {
         type E = Option |: (String \/ ?) |: Base
 
@@ -45,6 +45,48 @@ object EmmSpecs extends Specification {
 
         \/.right[String, Int](42).liftM[E] mustEqual Emm[E, Int](\/-(Option(42)))
         \/.left[String, Int]("fuuuuuu").liftM[E] mustEqual Emm[E, Int](-\/("fuuuuuu"))
+      }
+    }
+
+    "lift into a stack that contains a partially-applied arity-2 higher-order constructor" in {
+      "inner" >> {
+        type E = Option |: Free[List, ?] |: Base
+
+        Free.point[List, Int](42).liftM[E].run must beLike {
+          case Some(f) => f runM identity mustEqual List(42)
+        }
+
+        Option(42).liftM[E].run must beLike {
+          case Some(f) => f runM identity mustEqual List(42)
+        }
+      }
+
+      "outer" >> {
+        type E = Free[List, ?] |: Option |: Base
+
+        Free.point[List, Int](42).liftM[E].run.runM(identity) mustEqual List(Option(42))
+        Option(42).liftM[E].run.runM(identity) mustEqual List(Option(42))
+      }
+    }
+
+    "lift into a stack that contains a partially-applied arity-2 higher-order constructor and an arity-2 constructor" in {
+      "inner" >> {
+        type E = (String \/ ?) |: Free[List, ?] |: Base
+
+        Free.point[List, Int](42).liftM[E].run must beLike {
+          case \/-(f) => f runM identity mustEqual List(42)
+        }
+
+        \/.right[String, Int](42).liftM[E].run must beLike {
+          case \/-(f) => f runM identity mustEqual List(42)
+        }
+      }
+
+      "outer" >> {
+        type E = Free[List, ?] |: (String \/ ?) |: Base
+
+        Free.point[List, Int](42).liftM[E].run.runM(identity) mustEqual List(\/-(42))
+        \/.right[String, Int](42).liftM[E].run.runM(identity) mustEqual List(\/-(42))
       }
     }
 
@@ -69,6 +111,34 @@ object EmmSpecs extends Specification {
       } yield v2
 
       e mustEqual Emm[E, Int](List(None, Some(2), None, Some(4)))
+    }
+
+    "bind over a stack that contains a partially-applied arity-2 constructor" in {
+      type E = (String \/ ?) |: Base
+
+      42.pointM[E] flatMap { _ => "foo".pointM[E] } mustEqual Emm[E, String](\/-("foo"))
+    }
+
+    "bind over a stack that contains a partially-applied arity-2 higher-order constructor" in {
+      "base" >> {
+        type E = Free[List, ?] |: Base
+
+        (42.pointM[E] flatMap { _ => "foo".pointM[E] } run).runM(identity) mustEqual List("foo")
+      }
+
+      "inner" >> {
+        type E = Option |: Free[List, ?] |: Base
+
+        (42.pointM[E] flatMap { _ => "foo".pointM[E] } run) must beLike {
+          case Some(f) => f.runM(identity) mustEqual List("foo")
+        }
+      }
+
+      "outer" >> {
+        type E = Free[List, ?] |: Option |: Base
+
+        (42.pointM[E] flatMap { _ => "foo".pointM[E] } run).runM(identity) mustEqual List(Option("foo"))
+      }
     }
 
     "enable flatMapM in any direction" in {
