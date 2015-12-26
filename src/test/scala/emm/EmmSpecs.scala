@@ -229,6 +229,50 @@ object EmmSpecs extends Specification {
 
       e.run.run must beSome(24)
     }
+
+    "allow both expansion and collapse of base with an arity-2 constructor" in {
+      "inner" >> {
+        type E = Task |: (String \/ ?) |: Base
+
+        val e = (Task now 42).liftM[E].expand map { _.swap } collapse
+
+        e.run.run mustEqual -\/(42)
+      }
+
+      "outer" >> {
+        type E = (String \/ ?) |: Task |: Base
+
+        val e = (Task now 42).liftM[E].expand map { _.attempt } collapse
+
+        e.run must beLike {
+          case \/-(t) => t.run mustEqual \/-(42)
+        }
+      }
+    }
+
+    "allow both expansion and collapse of base with a higher-order arity-2 constructor" in {
+      val toList = new (Option ~> List) {
+        def apply[A](xs: Option[A]) = xs.toList
+      }
+
+      "inner" >> {
+        type E = Task |: Free[Option, ?] |: Base
+
+        val e = (Task now 42).liftM[E].expand map { _ mapSuspension toList } collapse
+
+        e.run.run.runM(identity) mustEqual List(42)
+      }
+
+      "outer" >> {
+        type E = Free[Option, ?] |: Task |: Base
+
+        val e = (Task now 42).liftM[E].expand map { _.attempt } collapse
+
+        e.run.runM(identity) must beLike {
+          case Some(t) => t.run mustEqual \/-(42)
+        }
+      }
+    }
   }
 
   def haveType[A](implicit A: TypeTag[A]) = new {

@@ -205,40 +205,118 @@ object Effects {
     }
   }
 
-  sealed trait Expander[F[_], C <: Effects, Out <: Effects] {
+  sealed trait Expander[C <: Effects] {
+    type CC[_]
+    type Out <: Effects
 
-    def apply[A](fa: C#Point[A]): Out#Point[F[A]]
+    def apply[A](fa: C#Point[A]): Out#Point[CC[A]]
   }
 
   object Expander {
+    type Aux[C <: Effects, CC0[_], Out0 <: Effects] = Expander[C] { type CC[A] = CC0[A]; type Out = Out0 }
 
-    implicit def head[F[_]]: Expander[F, F |: Base, Base] = new Expander[F, F |: Base, Base] {
+    implicit def head[F[_]]: Expander.Aux[F |: Base, F, Base] = new Expander[F |: Base] {
+      type CC[A] = F[A]
+      type Out = Base
+
       def apply[A](fa: F[A]): F[A] = fa
     }
 
-    implicit def corecurse[F[_], G[_], C <: Effects, C2 <: Effects](implicit C: Expander[F, C, C2]): Expander[F, G |: C, G |: C2] = new Expander[F, G |: C, G |: C2] {
+    implicit def pahead[F[_, _], F2[_, _], Z](implicit ev: Permute2[F, F2]): Expander.Aux[F2[Z, ?] |: Base, F2[Z, ?], Base] = new Expander[F2[Z, ?] |: Base] {
+      type CC[A] = F2[Z, A]
+      type Out = Base
 
-      def apply[A](gca: G[C#Point[A]]): G[C2#Point[F[A]]] =
-        gca.asInstanceOf[G[C2#Point[F[A]]]]     // already proven equivalent; evaluation requires a Functor
+      def apply[A](fa: F2[Z, A]): F2[Z, A] = fa
+    }
+
+    implicit def headH[F[_[_], _], G[_]]: Expander.Aux[F[G, ?] |: Base, F[G, ?], Base] = new Expander[F[G, ?] |: Base] {
+      type CC[A] = F[G, A]
+      type Out = Base
+
+      def apply[A](fa: F[G, A]): F[G, A] = fa
+    }
+
+    implicit def corecurse[F[_], C <: Effects](implicit C: Expander[C]): Expander.Aux[F |: C, C.CC, F |: C.Out] = new Expander[F |: C] {
+      type CC[A] = C.CC[A]
+      type Out = F |: C.Out
+
+      def apply[A](gca: F[C#Point[A]]): Out#Point[CC[A]] =
+        gca.asInstanceOf[Out#Point[CC[A]]]     // already proven equivalent; evaluation requires a Functor
+    }
+
+    implicit def pacorecurse[F[_, _], F2[_, _], Z, C <: Effects](implicit ev: Permute2[F, F2], C: Expander[C]): Expander.Aux[F2[Z, ?] |: C, C.CC, F2[Z, ?] |: C.Out] = new Expander[F2[Z, ?] |: C] {
+      type CC[A] = C.CC[A]
+      type Out = F2[Z, ?] |: C.Out
+
+      def apply[A](gca: F2[Z, C#Point[A]]): Out#Point[CC[A]] =
+        gca.asInstanceOf[Out#Point[CC[A]]]     // already proven equivalent; evaluation requires a Functor
+    }
+
+    implicit def corecurseH[F[_[_], _], G[_], C <: Effects](implicit C: Expander[C]): Expander.Aux[F[G, ?] |: C, C.CC, F[G, ?] |: C.Out] = new Expander[F[G, ?] |: C] {
+      type CC[A] = C.CC[A]
+      type Out = F[G, ?] |: C.Out
+
+      def apply[A](gca: F[G, C#Point[A]]): Out#Point[CC[A]] =
+        gca.asInstanceOf[Out#Point[CC[A]]]     // already proven equivalent; evaluation requires a Functor
     }
   }
 
-  sealed trait Collapser[F[_], C <: Effects, Out <: Effects] {
+  sealed trait Collapser[E, C <: Effects] {
+    type A
+    type Out <: Effects
 
-    def apply[A](fa: C#Point[F[A]]): Out#Point[A]
+    def apply(fa: C#Point[E]): Out#Point[A]
   }
 
   object Collapser {
+    type Aux[E, C <: Effects, A0, Out0 <: Effects] = Collapser[E, C] { type A = A0; type Out = Out0 }
 
-    implicit def head[F[_]]: Collapser[F, Base, F |: Base] = new Collapser[F, Base, F |: Base] {
+    implicit def head[F[_], A0]: Collapser.Aux[F[A0], Base, A0, F |: Base] = new Collapser[F[A0], Base] {
+      type A = A0
+      type Out = F |: Base
 
-      def apply[A](fa: F[A]): F[A] = fa
+      def apply(fa: F[A]): F[A] = fa
     }
 
-    implicit def corecurse[F[_], G[_], C <: Effects, C2 <: Effects](implicit C: Collapser[F, C, C2]): Collapser[F, G |: C, G |: C2] = new Collapser[F, G |: C, G |: C2] {
+    implicit def pahead[F[_, _], F2[_, _], Z, A0](implicit ev: Permute2[F, F2]): Collapser.Aux[F2[Z, A0], Base, A0, F2[Z, ?] |: Base] = new Collapser[F2[Z, A0], Base] {
+      type A = A0
+      type Out = F2[Z, ?] |: Base
 
-      def apply[A](gca: G[C#Point[F[A]]]): G[C2#Point[A]] =
-        gca.asInstanceOf[G[C2#Point[A]]]      // already proven equivalent; evaluation requires a Functor
+      def apply(fa: F2[Z, A]): F2[Z, A] = fa
+    }
+
+    implicit def headH[F[_[_], _], G[_], A0]: Collapser.Aux[F[G, A0], Base, A0, F[G, ?] |: Base] = new Collapser[F[G, A0], Base] {
+      type A = A0
+      type Out = F[G, ?] |: Base
+
+      def apply(fa: F[G, A]): F[G, A] = fa
+    }
+
+    implicit def corecurse[E, F[_], C <: Effects](implicit C: Collapser[E, C]): Collapser.Aux[E, F |: C, C.A, F |: C.Out] = new Collapser[E, F |: C] {
+      type A = C.A
+      type Out = F |: C.Out
+
+      // if I use the aliases, scalac gets very confused...
+      def apply(gca: F[C#Point[E]]): F[C.Out#Point[C.A]] =
+        gca.asInstanceOf[Out#Point[A]]      // already proven equivalent; evaluation requires a Functor
+    }
+
+    implicit def pacorecurse[E, F[_, _], F2[_, _], Z, C <: Effects](implicit ev: Permute2[F, F2], C: Collapser[E, C]): Collapser.Aux[E, F2[Z, ?] |: C, C.A, F2[Z, ?] |: C.Out] = new Collapser[E, F2[Z, ?] |: C] {
+      type A = C.A
+      type Out = F2[Z, ?] |: C.Out
+
+      // if I use the aliases, scalac gets very confused...
+      def apply(gca: F2[Z, C#Point[E]]): F2[Z, C.Out#Point[C.A]] =
+        gca.asInstanceOf[Out#Point[A]]      // already proven equivalent; evaluation requires a Functor
+    }
+
+    implicit def corecurseH[E, F[_[_], _], G[_], C <: Effects](implicit C: Collapser[E, C]): Collapser.Aux[E, F[G, ?] |: C, C.A, F[G, ?] |: C.Out] = new Collapser[E, F[G, ?] |: C] {
+      type A = C.A
+      type Out = F[G, ?] |: C.Out
+
+      // if I use the aliases, scalac gets very confused...
+      def apply(gca: F[G, C#Point[E]]): F[G, C.Out#Point[C.A]] =
+        gca.asInstanceOf[Out#Point[A]]      // already proven equivalent; evaluation requires a Functor
     }
   }
 
@@ -465,11 +543,9 @@ final case class Emm[C <: Effects, A](run: C#Point[A]) {
   def flatMapM[G[_], B](f: A => G[B])(implicit L: Lifter[G, C], B: Binder[C]): Emm[C, B] =
     flatMap { a => Emm(L(f(a))) }
 
-  def expand[G[_], C2 <: Effects](implicit C: Expander[G, C, C2]): Emm[C2, G[A]] =
-    Emm(C(run))
+  def expand(implicit C: Expander[C]): Emm[C.Out, C.CC[A]] = Emm(C(run))
 
-  def collapse[G[_], B, C2 <: Effects](implicit ev: A =:= G[B], C: Collapser[G, C, C2]): Emm[C2, B] =
-    Emm(C(run.asInstanceOf[C#Point[G[B]]]))     // cast is just to avoid unnecessary mapping
+  def collapse(implicit C: Collapser[A, C]): Emm[C.Out, C.A] = Emm(C(run))
 }
 
 trait EmmLowPriorityImplicits1 {
