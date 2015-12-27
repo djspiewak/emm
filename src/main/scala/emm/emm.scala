@@ -320,200 +320,68 @@ object Effects {
     }
   }
 
-  trait LeftBilifter[F[_, _], B, C <: Effects] {
-    def apply[A](fa: F[A, B]): C#Point[A]
-  }
-
-  object LeftBilifter {
-
-    implicit def exacthead[F[_, _], B]: LeftBilifter[F, B, F[?, B] |: Base] = new LeftBilifter[F, B, F[?, B] |: Base] {
-      def apply[A](fa: F[A, B]): F[A, B] = fa
-    }
-
-    implicit def head[F[_, _], B, C <: Effects](implicit M: Mapper[C], F: Functor[F[?, B]]): LeftBilifter[F, B, F[?, B] |: C] = new LeftBilifter[F, B, F[?, B] |: C] {
-      def apply[A](fa: F[A, B]): F[C#Point[A], B] = F.map(fa) { a => M.point(a) }
-    }
-
-    implicit def corecurse[F[_, _], G[_], B, C <: Effects](implicit L: LeftBilifter[F, B, C], G: Applicative[G]): LeftBilifter[F, B, G |: C] = new LeftBilifter[F, B, G |: C] {
-      def apply[A](fa: F[A, B]): G[C#Point[A]] = G.point(L(fa))
-    }
-
-    implicit def pacorecurse[F[_, _], G[_, _], G2[_, _], Z, B, C <: Effects](implicit ev: Permute2[G, G2], L: LeftBilifter[F, B, C], G: Applicative[G2[Z, ?]]): LeftBilifter[F, B, G2[Z, ?] |: C] = new LeftBilifter[F, B, G2[Z, ?] |: C] {
-      def apply[A](fa: F[A, B]): G2[Z, C#Point[A]] = G.point(L(fa))
-    }
-
-    implicit def corecurseH[F[_, _], G[_[_], _], H[_], B, C <: Effects](implicit L: LeftBilifter[F, B, C], G: Applicative[G[H, ?]]): LeftBilifter[F, B, G[H, ?] |: C] = new LeftBilifter[F, B, G[H, ?] |: C] {
-      def apply[A](fa: F[A, B]): G[H, C#Point[A]] = G.point(L(fa))
-    }
-  }
-
-  trait RightBilifter[F[_, _], B, C <: Effects] {
-    def apply[A](fa: F[B, A]): C#Point[A]
-  }
-
-  object RightBilifter {
-
-    implicit def exacthead[F[_, _], B]: RightBilifter[F, B, F[B, ?] |: Base] = new RightBilifter[F, B, F[B, ?] |: Base] {
-      def apply[A](fa: F[B, A]): F[B, A] = fa
-    }
-
-    implicit def head[F[_, _], B, C <: Effects](implicit M: Mapper[C], F: Functor[F[B, ?]]): RightBilifter[F, B, F[B, ?] |: C] = new RightBilifter[F, B, F[B, ?] |: C] {
-      def apply[A](fa: F[B, A]): F[B, C#Point[A]] = F.map(fa) { a => M.point(a) }
-    }
-
-    implicit def corecurse[F[_, _], G[_], B, C <: Effects](implicit L: RightBilifter[F, B, C], G: Applicative[G]): RightBilifter[F, B, G |: C] = new RightBilifter[F, B, G |: C] {
-      def apply[A](fa: F[B, A]): G[C#Point[A]] = G.point(L(fa))
-    }
-
-    implicit def pacorecurse[F[_, _], G[_, _], G2[_, _], Z, B, C <: Effects](implicit ev: Permute2[G, G2], L: RightBilifter[F, B, C], G: Applicative[G2[Z, ?]]): RightBilifter[F, B, G2[Z, ?] |: C] = new RightBilifter[F, B, G2[Z, ?] |: C] {
-      def apply[A](fa: F[B, A]): G2[Z, C#Point[A]] = G.point(L(fa))
-    }
-
-    implicit def corecurseH[F[_, _], G[_[_], _], H[_], B, C <: Effects](implicit L: RightBilifter[F, B, C], G: Applicative[G[H, ?]]): RightBilifter[F, B, G[H, ?] |: C] = new RightBilifter[F, B, G[H, ?] |: C] {
-      def apply[A](fa: F[B, A]): G[H, C#Point[A]] = G.point(L(fa))
-    }
-  }
-
-  @implicitNotFound("could not lift effect ${F} into stack ${C}; either ${C} does not contain ${F}, or there is no Functor for either ${F}[${A}, ?] or ${F}[?, ${B}]")
-  trait Bilifter[F[_, _], A, B, C <: Effects] {
-    type Out
-
-    def apply(fa: F[A, B]): C#Point[Out]
-  }
-
-  object Bilifter {
-    type Aux[F[_, _], A, B, C <: Effects, Out0] = Bilifter[F, A, B, C] { type Out = Out0 }
-
-    implicit def left[F[_, _], A, B, C <: Effects](implicit L: LeftBilifter[F, B, C]): Bilifter.Aux[F, A, B, C, A] = new Bilifter[F, A, B, C] {
-      type Out = A
-
-      def apply(fa: F[A, B]): C#Point[A] = L(fa)
-    }
-
-    implicit def right[F[_, _], A, B, C <: Effects](implicit L: RightBilifter[F, A, C]): Bilifter.Aux[F, A, B, C, B] = new Bilifter[F, A, B, C] {
-      type Out = B
-
-      def apply(fa: F[A, B]): C#Point[B] = L(fa)
-    }
-  }
-
-  @implicitNotFound("could not lift effect ${F}[${G}, ?] into stack ${C}; either ${C} does not contain ${F}, or there is no functor for ${F}[${G}, ?]")
-  trait HBilifter[F[_[_], _], G[_], C <: Effects] {
-    def apply[A](fa: F[G, A]): C#Point[A]
-  }
-
-  object HBilifter {
-
-    implicit def exacthead[F[_[_], _], G[_]]: HBilifter[F, G, F[G, ?] |: Base] = new HBilifter[F, G, F[G, ?] |: Base] {
-      def apply[A](fa: F[G, A]): F[G, A] = fa
-    }
-
-    implicit def head[F[_[_], _], G[_], C <: Effects](implicit P: Mapper[C], F: Functor[F[G, ?]]): HBilifter[F, G, F[G, ?] |: C] = new HBilifter[F, G, F[G, ?] |: C] {
-      def apply[A](fa: F[G, A]) = F.map(fa) { a => P.point(a) }
-    }
-
-    implicit def corecurse[F1[_[_], _], G1[_], F2[_], C <: Effects](implicit L: HBilifter[F1, G1, C], F2: Applicative[F2]): HBilifter[F1, G1, F2 |: C] = new HBilifter[F1, G1, F2 |: C] {
-      def apply[A](fa: F1[G1, A]): F2[C#Point[A]] = F2.point(L(fa))
-    }
-
-    implicit def pacorecurse[F1[_[_], _], G1[_], F2[_, _], F3[_, _], Z, C <: Effects](implicit ev: Permute2[F2, F3], L: HBilifter[F1, G1, C], F3: Applicative[F3[Z, ?]]): HBilifter[F1, G1, F3[Z, ?] |: C] = new HBilifter[F1, G1, F3[Z, ?] |: C] {
-      def apply[A](fa: F1[G1, A]): F3[Z, C#Point[A]] = F3.point(L(fa))
-    }
-
-    implicit def corecurseH[F1[_[_], _], G1[_], F2[_[_], _], G2[_], C <: Effects](implicit L: HBilifter[F1, G1, C], F2: Applicative[F2[G2, ?]]): HBilifter[F1, G1, F2[G2, ?] |: C] = new HBilifter[F1, G1, F2[G2, ?] |: C] {
-      def apply[A](fa: F1[G1, A]): F2[G2, C#Point[A]] = F2.point(L(fa))
-    }
-  }
-
-  @implicitNotFound("could not lift effect ${F} into stack ${C}; either ${C} does not contain ${F}, or there is no Functor for ${F}")
-  trait Lifter[F[_], C <: Effects] {
-    def apply[A](fa: F[A]): C#Point[A]
-  }
-
-  object Lifter {
-
-    implicit def exacthead[F[_]]: Lifter[F, F |: Base] = new Lifter[F, F |: Base] {
-      def apply[A](fa: F[A]): F[A] = fa
-    }
-
-    implicit def paexacthead[F[_, _], Z, G[_, _]](implicit ev: Permute2[F, G]): Lifter[G[Z, ?], G[Z, ?] |: Base] = new Lifter[G[Z, ?], G[Z, ?] |: Base] {
-      def apply[A](fa: G[Z, A]): G[Z, A] = fa
-    }
-
-    implicit def exactheadH[F[_[_], _], G[_]]: Lifter[F[G, ?], F[G, ?] |: Base] = new Lifter[F[G, ?], F[G, ?] |: Base] {
-      def apply[A](fa: F[G, A]): F[G, A] = fa
-    }
-
-    implicit def head[F[_], C <: Effects](implicit P: Mapper[C], F: Functor[F]): Lifter[F, F |: C] = new Lifter[F, F |: C] {
-      def apply[A](fa: F[A]): F[C#Point[A]] = F.map(fa) { a => P.point(a) }
-    }
-
-    implicit def pahead[F[_, _], Z, G[_, _], C <: Effects](implicit ev: Permute2[F, G], P: Mapper[C], F: Functor[G[Z, ?]]): Lifter[G[Z, ?], G[Z, ?] |: C] = new Lifter[G[Z, ?], G[Z, ?] |: C] {
-      def apply[A](fa: G[Z, A]): G[Z, C#Point[A]] = F.map(fa) { a => P.point(a) }
-    }
-
-    implicit def headH[F[_[_], _], G[_], C <: Effects](implicit P: Mapper[C], F: Functor[F[G, ?]]): Lifter[F[G, ?], F[G, ?] |: C] = new Lifter[F[G, ?], F[G, ?] |: C] {
-      def apply[A](fa: F[G, A]): F[G, C#Point[A]] = F.map(fa) { a => P.point(a) }
-    }
-
-    implicit def corecurse[F[_], G[_], C <: Effects](implicit L: Lifter[F, C], G: Applicative[G]): Lifter[F, G |: C] = new Lifter[F, G |: C] {
-      def apply[A](fa: F[A]): G[C#Point[A]] = G.point(L(fa))
-    }
-
-    implicit def pacorecurseG[F[_], G[_, _], G2[_, _], Z, C <: Effects](implicit evG: Permute2[G, G2], L: Lifter[F, C], G: Applicative[G2[Z, ?]]): Lifter[F, G2[Z, ?] |: C] = new Lifter[F, G2[Z, ?] |: C] {
-      def apply[A](fa: F[A]): G2[Z, C#Point[A]] = G.point(L(fa))
-    }
-
-    implicit def pacorecurseF[F[_, _], F2[_, _], Z, G[_], C <: Effects](implicit evF: Permute2[F, F2], L: Lifter[F2[Z, ?], C], G: Applicative[G]): Lifter[F2[Z, ?], G |: C] = new Lifter[F2[Z, ?], G |: C] {
-      def apply[A](fa: F2[Z, A]): G[C#Point[A]] = G.point(L(fa))
-    }
-
-    implicit def corecurseFG[F[_, _], F2[_, _], ZF, G[_, _], G2[_, _], ZG, C <: Effects](implicit evF: Permute2[F, F2], evG: Permute2[G, G2], L: Lifter[F2[ZF, ?], C], G: Applicative[G2[ZG, ?]]): Lifter[F2[ZF, ?], G2[ZG, ?] |: C] = new Lifter[F2[ZF, ?], G2[ZG, ?] |: C] {
-      def apply[A](fa: F2[ZF, A]): G2[ZG, C#Point[A]] = G.point(L(fa))
-    }
-
-    implicit def corecurseHF[F[_[_], _], G0[_], G[_], C <: Effects](implicit L: Lifter[F[G0, ?], C], G: Applicative[G]): Lifter[F[G0, ?], G |: C] = new Lifter[F[G0, ?], G |: C] {
-      def apply[A](fa: F[G0, A]): G[C#Point[A]] = G.point(L(fa))
-    }
-
-    implicit def corecurseHG[F[_], G[_[_], _], H[_], C <: Effects](implicit L: Lifter[F, C], G: Applicative[G[H, ?]]): Lifter[F, G[H, ?] |: C] = new Lifter[F, G[H, ?] |: C] {
-      def apply[A](fa: F[A]): G[H, C#Point[A]] = G.point(L(fa))
-    }
-
-    implicit def pacorecurseGH[F[_[_], _], G0[_], G[_, _], G2[_, _], Z, C <: Effects](implicit evG: Permute2[G, G2], L: Lifter[F[G0, ?], C], G: Applicative[G2[Z, ?]]): Lifter[F[G0, ?], G2[Z, ?] |: C] = new Lifter[F[G0, ?], G2[Z, ?] |: C] {
-      def apply[A](fa: F[G0, A]): G2[Z, C#Point[A]] = G.point(L(fa))
-    }
-
-    implicit def pacorecurseFH[F[_, _], F2[_, _], Z, G[_[_], _], H[_], C <: Effects](implicit evF: Permute2[F, F2], L: Lifter[F2[Z, ?], C], G: Applicative[G[H, ?]]): Lifter[F2[Z, ?], G[H, ?] |: C] = new Lifter[F2[Z, ?], G[H, ?] |: C] {
-      def apply[A](fa: F2[Z, A]): G[H, C#Point[A]] = G.point(L(fa))
-    }
-  }
-
-  trait ArbLifter[E, C <: Effects] {
+  @implicitNotFound("could not lift ${E} into stack ${C}; either ${C} does not contain a constructor of ${E}, or there is no Functor for a constructor of ${E}")
+  trait Lifter[E, C <: Effects] {
     type Out
 
     def apply(e: E): C#Point[Out]
   }
 
-  object ArbLifter {
-    type Aux[E, C <: Effects, Out0] = ArbLifter[E, C] { type Out = Out0 }
+  object Lifter {
+    type Aux[E, C <: Effects, Out0] = Lifter[E, C] { type Out = Out0 }
 
-    implicit def lifter[F[_], A, C <: Effects](implicit L: Lifter[F, C]): ArbLifter.Aux[F[A], C, A] = new ArbLifter[F[A], C] {
+    implicit def head1[F[_], A]: Lifter.Aux[F[A], F |: Base, A] = new Lifter[F[A], F |: Base] {
       type Out = A
 
-      def apply(fa: F[A]) = L(fa)
+      def apply(fa: F[A]) = fa
     }
 
-    implicit def bilifter[F[_, _], A, B, C <: Effects](implicit L: Bilifter[F, A, B, C]): ArbLifter.Aux[F[A, B], C, L.Out] = new ArbLifter[F[A, B], C] {
+    implicit def head2[F[_, _], F2[_, _], Z, A](implicit ev: Permute2[F, F2]): Lifter.Aux[F2[Z, A], F2[Z, ?] |: Base, A] = new Lifter[F2[Z, A], F2[Z, ?] |: Base] {
+      type Out = A
+
+      def apply(fa: F2[Z, A]) = fa
+    }
+
+    implicit def headH1[F[_[_], _], G[_], A]: Lifter.Aux[F[G, A], F[G, ?] |: Base, A] = new Lifter[F[G, A], F[G, ?] |: Base] {
+      type Out = A
+
+      def apply(fa: F[G, A]) = fa
+    }
+
+    implicit def mid1[F[_], A, C <: Effects](implicit C: Mapper[C], F: Functor[F]): Lifter.Aux[F[A], F |: C, A] = new Lifter[F[A], F |: C] {
+      type Out = A
+
+      def apply(fa: F[A]) = F.map(fa) { a => C.point(a) }
+    }
+
+    implicit def mid2[F[_, _], F2[_, _], Z, A, C <: Effects](implicit ev: Permute2[F, F2], C: Mapper[C], F: Functor[F2[Z, ?]]): Lifter.Aux[F2[Z, A], F2[Z, ?] |: C, A] = new Lifter[F2[Z, A], F2[Z, ?] |: C] {
+      type Out = A
+
+      def apply(fa: F2[Z, A]) = F.map(fa) { a => C.point(a) }
+    }
+
+    implicit def midH1[F[_[_], _], G[_], A, C <: Effects](implicit C: Mapper[C], F: Functor[F[G, ?]]): Lifter.Aux[F[G, A], F[G, ?] |: C, A] = new Lifter[F[G, A], F[G, ?] |: C] {
+      type Out = A
+
+      def apply(fa: F[G, A]) = F.map(fa) { a => C.point(a) }
+    }
+
+    implicit def corecurse1[F[_], E, C <: Effects](implicit L: Lifter[E, C], F: Applicative[F]): Lifter.Aux[E, F |: C, L.Out] = new Lifter[E, F |: C] {
       type Out = L.Out
 
-      def apply(fa: F[A, B]) = L(fa)
+      def apply(e: E) = F.point(L(e))
     }
 
-    implicit def hbilifter[F[_[_], _], G[_], A, C <: Effects](implicit L: HBilifter[F, G, C]): ArbLifter.Aux[F[G, A], C, A] = new ArbLifter[F[G, A], C] {
-      type Out = A
+    implicit def corecurse2[F[_, _], F2[_, _], Z, E, C <: Effects](implicit ev: Permute2[F, F2], L: Lifter[E, C], F: Applicative[F2[Z, ?]]): Lifter.Aux[E, F2[Z, ?] |: C, L.Out] = new Lifter[E, F2[Z, ?] |: C] {
+      type Out = L.Out
 
-      def apply(fa: F[G, A]) = L(fa)
+      def apply(e: E) = F.point(L(e))
+    }
+
+    implicit def corecurseH1[F[_[_], _], G[_], E, C <: Effects](implicit L: Lifter[E, C], F: Applicative[F[G, ?]]): Lifter.Aux[E, F[G, ?] |: C, L.Out] = new Lifter[E, F[G, ?] |: C] {
+      type Out = L.Out
+
+      def apply(e: E) = F.point(L(e))
     }
   }
 
@@ -568,7 +436,7 @@ final case class Emm[C <: Effects, A](run: C#Point[A]) {
   def flatMap[B](f: A => Emm[C, B])(implicit B: Binder[C]): Emm[C, B] =
     Emm(B.bind(run) { a => f(a).run })
 
-  def flatMapM[E](f: A => E)(implicit E: ArbLifter[E, C], B: Binder[C]): Emm[C, E.Out] =
+  def flatMapM[E](f: A => E)(implicit E: Lifter[E, C], B: Binder[C]): Emm[C, E.Out] =
     flatMap { a => Emm(E(f(a))) }
 
   def expand(implicit C: Expander[C]): Emm[C.Out, C.CC[A]] = Emm(C(run))
