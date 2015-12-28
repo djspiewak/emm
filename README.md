@@ -199,7 +199,11 @@ Specifically, the following *kinds* of type constructors are accepted (i.e. will
 
 - `* -> *` – Examples: `Option`, `List`, `Task`
 - `* x * -> *` – Examples: `Either`, `State` (with caveats), `Writer` (more caveats), `Reader` (sorry, still caveated)
+- `* x * x * -> *` – Examples: *No idea*
 - `(* -> *) x * -> *` – Examples: `Free`, `OptionT`, `ListT`, `StreamT`
+- `(* -> *) x * x * -> *` – Examples: *uh...*
+- `(* -> *) x * x * x * -> *` – Examples: `IndexedStateT` (sort of)
+- `State` – Yes, this is actually special-cased
 
 First off, the examples in the higher-order entry (such as `ListT`) are not a typo.  You can (sort of) freely mix monad transformers and `Emm`, though I can only think of one reason why you would want to: effects implemented as transformers on the `Identity` monad.  These implementations are the bane of my existence, but unfortunately they are extremely common due to the nature of scalaz's (and cats') design.
 
@@ -234,7 +238,19 @@ type State[S, A] = StateT[Id, S, A]
 type StateT[F[_], S, A] = IndexedStateT[F, S, S, A]
 ```
 
-Dear god, what is `IndexedStateT`??  No one really knows, but it's highly inconvenient.  You'll notice that the kind of `IndexedStateT` (the base type) is `(* -> *) x * x * x * -> *`, which is not on our list!  So in other words, `State` is *not* supported as an effect in `Emm`, and you will get some generally annoying errors if you try to use it.
+Dear god, what is `IndexedStateT`??  No one really knows, but it's highly inconvenient.  You'll notice that the kind of `IndexedStateT` (the base type) is `(* -> *) x * x * x * -> *`.  Now, this type signature is in our list, which seems like it should be ok, but unfortunately it turns out that there is one more foible: the `Id` type is treated specially by scalac.
+
+I have no idea why this is, and honestly it's not something I had heard about before.  For context, `Id` is defined in the following way:
+
+```scala
+type Id[+X] = X
+```
+
+Seems straightforward enough.  The variance is scary, because variance is always scary, but generally there's just not much going on here.  The problem is that this type doesn't appear to *consistently* unify with types that have the shape `* -> *`, which is precisely what our `IndexedStateT` pattern seems to require.  In other words, *I can't get `State` to work!*
+
+This is unbelievably frustrating, and `State` is a really really important type of effect.  So it's special-cased.  There is literally a separate case (at a lower priority) in all of the implicit machinery for `State` specifically, and this works.  So, you *can* use `State` with `Emm`, and you basically don't have to worry about any of these shenanigans.  It's only ugly on my end, and then only because scalaz decided to define `State` in terms of a whole series of increasingly-complex monad transformer signatures.
+
+If monad transformers weren't a thing (or more notably, if it weren't idiomatic to define all effect types as transformers), none of this would be an issue.  Unfortunately, `Emm` has to be compatible with this sort of legacy mess, and so `State` is special cased.  Yay?
 
 The good news is that overcoming these limitations is largely a matter of typing, albeit a *lot* of typing.  It's certainly possible to enable support for `State` (and similarly-defined effects), but I haven't done it yet because the work involved is both significant and boring.  In the meantime, only effects with a base type who's kind is on the list above are supported by `Emm`.
 
