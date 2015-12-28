@@ -28,7 +28,35 @@ object Effects {
     def ap[A, B](fa: C#Point[A])(f: C#Point[A => B]): C#Point[B]
   }
 
-  object Mapper {
+  trait MapperLowPriorityImplicits {
+    import scalaz.State
+
+    implicit def headState[S]: Mapper[State[S, ?] |: Base] = new Mapper[State[S, ?] |: Base] {
+
+      def point[A](a: A) = State.state(a)
+
+      def map[A, B](fa: State[S, A])(f: A => B): State[S, B] = fa map f
+
+      def ap[A, B](fa: State[S, A])(f: State[S, A => B]): State[S, B] = f flatMap (fa map)
+    }
+
+    implicit def corecurseState[S, C <: Effects](implicit P: Mapper[C]): Mapper[State[S, ?] |: C] = new Mapper[State[S, ?] |: C] {
+
+      def point[A](a: A) = State.state(P.point(a))
+
+      def map[A, B](fa: State[S, C#Point[A]])(f: A => B): State[S, C#Point[B]] = fa map { a => P.map(a)(f) }
+
+      def ap[A, B](fa: State[S, C#Point[A]])(f: State[S, C#Point[A => B]]): State[S, C#Point[B]] = {
+        f flatMap { t =>
+          fa map { a =>
+            P.ap(a)(t)
+          }
+        }
+      }
+    }
+  }
+
+  object Mapper extends MapperLowPriorityImplicits {
 
     implicit def head1[F[_]](implicit F: Applicative[F]): Mapper[F |: Base] = new Mapper[F |: Base] {
 
@@ -271,7 +299,26 @@ object Effects {
     def bind[A, B](cca: C#Point[A])(f: A => C#Point[B]): C#Point[B]
   }
 
-  object Binder {
+  trait BinderLowPriorityImplicits {
+    import scalaz.State
+
+    implicit def headState[S]: Binder[State[S, ?] |: Base] = new Binder[State[S, ?] |: Base] {
+      def bind[A, B](fa: State[S, A])(f: A => State[S, B]) = fa flatMap f
+    }
+
+    implicit def corecurseState[S, C <: Effects](implicit C: Binder[C], T: Traverser[C]): Binder[State[S, ?] |: C] = new Binder[State[S, ?] |: C] {
+
+      def bind[A, B](fa: State[S, C#Point[A]])(f: A => State[S, C#Point[B]]): State[S, C#Point[B]] = {
+        fa flatMap { ca =>
+          val scca = T.traverse[State[S, ?], A, C#Point[B]](ca) { a => f(a) }
+
+          scca map { cca => C.bind(cca) { a => a } }
+        }
+      }
+    }
+  }
+
+  object Binder extends BinderLowPriorityImplicits {
 
     implicit def head1[F[_]](implicit F: Bind[F]): Binder[F |: Base] = new Binder[F |: Base] {
       def bind[A, B](fa: F[A])(f: A => F[B]): F[B] = F.bind(fa)(f)
@@ -371,7 +418,26 @@ object Effects {
     def apply[A](fa: C#Point[A]): Out#Point[CC[A]]
   }
 
-  object Expander {
+  trait ExpanderLowPriorityImplicits {
+    import scalaz.State
+
+    implicit def headState[S]: Expander.Aux[State[S, ?] |: Base, State[S, ?], Base] = new Expander[State[S, ?] |: Base] {
+      type CC[A] = State[S, A]
+      type Out = Base
+
+      def apply[A](fa: State[S, A]): State[S, A] = fa
+    }
+
+    implicit def corecurseState[S, C <: Effects](implicit C: Expander[C]): Expander.Aux[State[S, ?] |: C, C.CC, State[S, ?] |: C.Out] = new Expander[State[S, ?] |: C] {
+      type CC[A] = C.CC[A]
+      type Out = State[S, ?] |: C.Out
+
+      def apply[A](gca: State[S, C#Point[A]]): Out#Point[CC[A]] =
+        gca.asInstanceOf[Out#Point[CC[A]]]     // already proven equivalent; evaluation requires a Functor
+    }
+  }
+
+  object Expander extends ExpanderLowPriorityImplicits {
     type Aux[C <: Effects, CC0[_], Out0 <: Effects] = Expander[C] { type CC[A] = CC0[A]; type Out = Out0 }
 
     implicit def head1[F[_]]: Expander.Aux[F |: Base, F, Base] = new Expander[F |: Base] {
@@ -472,7 +538,62 @@ object Effects {
     def apply(fa: C#Point[E]): Out#Point[A]
   }
 
-  object Collapser {
+  trait CollapserLowPriorityImplicits1 {
+    import scalaz.State
+
+    implicit def headState[S, A0]: Collapser.Aux[State[S, A0], Base, A0, State[S, ?] |: Base] = new Collapser[State[S, A0], Base] {
+      type A = A0
+      type Out = State[S, ?] |: Base
+
+      def apply(fa: State[S, A]): State[S, A] = fa
+    }
+
+    implicit def corecurseState[E, S, C <: Effects](implicit C: Collapser[E, C]): Collapser.Aux[E, State[S, ?] |: C, C.A, State[S, ?] |: C.Out] = new Collapser[E, State[S, ?] |: C] {
+      type A = C.A
+      type Out = State[S, ?] |: C.Out
+
+      // if I use the aliases, scalac gets very confused...
+      def apply(gca: State[S, C#Point[E]]): State[S, C.Out#Point[C.A]] =
+        gca.asInstanceOf[Out#Point[A]]      // already proven equivalent; evaluation requires a Functor
+    }
+  }
+
+  trait CollapserLowPriorityImplicits2 extends CollapserLowPriorityImplicits1 {
+
+    implicit def headH2[F[_[_], _, _], F2[_[_], _, _], G[_], Z, A0](implicit ev: PermuteH2[F, F2]): Collapser.Aux[F2[G, Z, A0], Base, A0, F2[G, Z, ?] |: Base] = new Collapser[F2[G, Z, A0], Base] {
+      type A = A0
+      type Out = F2[G, Z, ?] |: Base
+
+      def apply(fa: F2[G, Z, A]): F2[G, Z, A] = fa
+    }
+
+    implicit def headH3[F[_[_], _, _, _], F2[_[_], _, _, _], G[_], Y, Z, A0](implicit ev: PermuteH3[F, F2]): Collapser.Aux[F2[G, Y, Z, A0], Base, A0, F2[G, Y, Z, ?] |: Base] = new Collapser[F2[G, Y, Z, A0], Base] {
+      type A = A0
+      type Out = F2[G, Y, Z, ?] |: Base
+
+      def apply(fa: F2[G, Y, Z, A]): F2[G, Y, Z, A] = fa
+    }
+
+    implicit def corecurseH2[E, F[_[_], _, _], F2[_[_], _, _], G[_], Z, C <: Effects](implicit ev: PermuteH2[F, F2], C: Collapser[E, C]): Collapser.Aux[E, F2[G, Z, ?] |: C, C.A, F2[G, Z, ?] |: C.Out] = new Collapser[E, F2[G, Z, ?] |: C] {
+      type A = C.A
+      type Out = F2[G, Z, ?] |: C.Out
+
+      // if I use the aliases, scalac gets very confused...
+      def apply(gca: F2[G, Z, C#Point[E]]): F2[G, Z, C.Out#Point[C.A]] =
+        gca.asInstanceOf[Out#Point[A]]      // already proven equivalent; evaluation requires a Functor
+    }
+
+    implicit def corecurseH3[E, F[_[_], _, _, _], F2[_[_], _, _, _], G[_], Y, Z, C <: Effects](implicit ev: PermuteH3[F, F2], C: Collapser[E, C]): Collapser.Aux[E, F2[G, Y, Z, ?] |: C, C.A, F2[G, Y, Z, ?] |: C.Out] = new Collapser[E, F2[G, Y, Z, ?] |: C] {
+      type A = C.A
+      type Out = F2[G, Y, Z, ?] |: C.Out
+
+      // if I use the aliases, scalac gets very confused...
+      def apply(gca: F2[G, Y, Z, C#Point[E]]): F2[G, Y, Z, C.Out#Point[C.A]] =
+        gca.asInstanceOf[Out#Point[A]]      // already proven equivalent; evaluation requires a Functor
+    }
+  }
+
+  object Collapser extends CollapserLowPriorityImplicits2 {
     type Aux[E, C <: Effects, A0, Out0 <: Effects] = Collapser[E, C] { type A = A0; type Out = Out0 }
 
     implicit def head1[F[_], A0]: Collapser.Aux[F[A0], Base, A0, F |: Base] = new Collapser[F[A0], Base] {
@@ -501,20 +622,6 @@ object Effects {
       type Out = F[G, ?] |: Base
 
       def apply(fa: F[G, A]): F[G, A] = fa
-    }
-
-    implicit def headH2[F[_[_], _, _], F2[_[_], _, _], G[_], Z, A0](implicit ev: PermuteH2[F, F2]): Collapser.Aux[F2[G, Z, A0], Base, A0, F2[G, Z, ?] |: Base] = new Collapser[F2[G, Z, A0], Base] {
-      type A = A0
-      type Out = F2[G, Z, ?] |: Base
-
-      def apply(fa: F2[G, Z, A]): F2[G, Z, A] = fa
-    }
-
-    implicit def headH3[F[_[_], _, _, _], F2[_[_], _, _, _], G[_], Y, Z, A0](implicit ev: PermuteH3[F, F2]): Collapser.Aux[F2[G, Y, Z, A0], Base, A0, F2[G, Y, Z, ?] |: Base] = new Collapser[F2[G, Y, Z, A0], Base] {
-      type A = A0
-      type Out = F2[G, Y, Z, ?] |: Base
-
-      def apply(fa: F2[G, Y, Z, A]): F2[G, Y, Z, A] = fa
     }
 
     implicit def corecurse1[E, F[_], C <: Effects](implicit C: Collapser[E, C]): Collapser.Aux[E, F |: C, C.A, F |: C.Out] = new Collapser[E, F |: C] {
@@ -552,24 +659,6 @@ object Effects {
       def apply(gca: F[G, C#Point[E]]): F[G, C.Out#Point[C.A]] =
         gca.asInstanceOf[Out#Point[A]]      // already proven equivalent; evaluation requires a Functor
     }
-
-    implicit def corecurseH2[E, F[_[_], _, _], F2[_[_], _, _], G[_], Z, C <: Effects](implicit ev: PermuteH2[F, F2], C: Collapser[E, C]): Collapser.Aux[E, F2[G, Z, ?] |: C, C.A, F2[G, Z, ?] |: C.Out] = new Collapser[E, F2[G, Z, ?] |: C] {
-      type A = C.A
-      type Out = F2[G, Z, ?] |: C.Out
-
-      // if I use the aliases, scalac gets very confused...
-      def apply(gca: F2[G, Z, C#Point[E]]): F2[G, Z, C.Out#Point[C.A]] =
-        gca.asInstanceOf[Out#Point[A]]      // already proven equivalent; evaluation requires a Functor
-    }
-
-    implicit def corecurseH3[E, F[_[_], _, _, _], F2[_[_], _, _, _], G[_], Y, Z, C <: Effects](implicit ev: PermuteH3[F, F2], C: Collapser[E, C]): Collapser.Aux[E, F2[G, Y, Z, ?] |: C, C.A, F2[G, Y, Z, ?] |: C.Out] = new Collapser[E, F2[G, Y, Z, ?] |: C] {
-      type A = C.A
-      type Out = F2[G, Y, Z, ?] |: C.Out
-
-      // if I use the aliases, scalac gets very confused...
-      def apply(gca: F2[G, Y, Z, C#Point[E]]): F2[G, Y, Z, C.Out#Point[C.A]] =
-        gca.asInstanceOf[Out#Point[A]]      // already proven equivalent; evaluation requires a Functor
-    }
   }
 
   @implicitNotFound("could not lift ${E} into stack ${C}; either ${C} does not contain a constructor of ${E}, or there is no Functor for a constructor of ${E}")
@@ -579,7 +668,29 @@ object Effects {
     def apply(e: E): C#Point[Out]
   }
 
-  object Lifter {
+  trait LifterLowPriorityImplicits {
+    import scalaz.State
+
+    implicit def headState[S, A]: Lifter.Aux[State[S, A], State[S, ?] |: Base, A] = new Lifter[State[S, A], State[S, ?] |: Base] {
+      type Out = A
+
+      def apply(fa: State[S, A]) = fa
+    }
+
+    implicit def midState[S, A, C <: Effects](implicit C: Mapper[C]): Lifter.Aux[State[S, A], State[S, ?] |: C, A] = new Lifter[State[S, A], State[S, ?] |: C] {
+      type Out = A
+
+      def apply(fa: State[S, A]) = fa map { a => C.point(a) }
+    }
+
+    implicit def corecurseState[S, E, C <: Effects](implicit L: Lifter[E, C]): Lifter.Aux[E, State[S, ?] |: C, L.Out] = new Lifter[E, State[S, ?] |: C] {
+      type Out = L.Out
+
+      def apply(e: E) = State.state(L(e))
+    }
+  }
+
+  object Lifter extends LifterLowPriorityImplicits {
     type Aux[E, C <: Effects, Out0] = Lifter[E, C] { type Out = Out0 }
 
     implicit def head1[F[_], A]: Lifter.Aux[F[A], F |: Base, A] = new Lifter[F[A], F |: Base] {
@@ -698,16 +809,42 @@ object Effects {
     def apply(e: E): C#Point[A]
   }
 
-  trait WrapperLowPriorityImplicits {
+  trait WrapperLowPriorityImplicits1 {
+    import scalaz.State
 
     implicit def head[A0]: Wrapper.Aux[A0, Base, A0] = new Wrapper[A0, Base] {
       type A = A0
 
       def apply(a: A) = a
     }
+
+    // state's definition in scalaz is weird enough to confuse scalac, but it's an important effect to support
+    implicit def corecurseState[S, E, C <: Effects, A0](implicit W: Wrapper.Aux[E, C, A0]): Wrapper.Aux[State[S, E], State[S, ?] |: C, A0] = new Wrapper[State[S, E], State[S, ?] |: C] {
+      type A = A0
+
+      def apply(s: State[S, E]): State[S, C#Point[A0]] = s map { e => W(e) }
+    }
   }
 
-  object Wrapper extends WrapperLowPriorityImplicits {
+  // not really sure why these functions in particular need to be moved down
+  trait WrapperLowPriorityImplicits2 extends WrapperLowPriorityImplicits1 {
+
+    implicit def corecurseH2[F[_[_], _, _], F2[_[_], _, _], G[_], Z, E, C <: Effects, A0](implicit ev: PermuteH2[F, F2], W: Wrapper.Aux[E, C, A0]): Wrapper.Aux[F2[G, Z, E], F2[G, Z, ?] |: C, A0] = new Wrapper[F2[G, Z, E], F2[G, Z, ?] |: C] {
+      type A = A0
+
+      def apply(fe: F2[G, Z, E]): F2[G, Z, C#Point[A]] =
+        fe.asInstanceOf[F2[G, Z, C#Point[A]]]      // already proven equivalent; actual evaluation requires a Functor
+    }
+
+    implicit def corecurseH3[F[_[_], _, _, _], F2[_[_], _, _, _], G[_], Y, Z, E, C <: Effects, A0](implicit ev: PermuteH3[F, F2], W: Wrapper.Aux[E, C, A0]): Wrapper.Aux[F2[G, Y, Z, E], F2[G, Y, Z, ?] |: C, A0] = new Wrapper[F2[G, Y, Z, E], F2[G, Y, Z, ?] |: C] {
+      type A = A0
+
+      def apply(fe: F2[G, Y, Z, E]): F2[G, Y, Z, C#Point[A]] =
+        fe.asInstanceOf[F2[G, Y, Z, C#Point[A]]]      // already proven equivalent; actual evaluation requires a Functor
+    }
+  }
+
+  object Wrapper extends WrapperLowPriorityImplicits2 {
     type Aux[E, C <: Effects, A0] = Wrapper[E, C] { type A = A0 }
 
     implicit def corecurse1[F[_], E, C <: Effects, A0](implicit W: Wrapper.Aux[E, C, A0]): Wrapper.Aux[F[E], F |: C, A0] = new Wrapper[F[E], F |: C] {
@@ -736,20 +873,6 @@ object Effects {
 
       def apply(fe: F[G, E]): F[G, C#Point[A]] =
         fe.asInstanceOf[F[G, C#Point[A]]]      // already proven equivalent; actual evaluation requires a Functor
-    }
-
-    implicit def corecurseH2[F[_[_], _, _], F2[_[_], _, _], G[_], Z, E, C <: Effects, A0](implicit ev: PermuteH2[F, F2], W: Wrapper.Aux[E, C, A0]): Wrapper.Aux[F2[G, Z, E], F2[G, Z, ?] |: C, A0] = new Wrapper[F2[G, Z, E], F2[G, Z, ?] |: C] {
-      type A = A0
-
-      def apply(fe: F2[G, Z, E]): F2[G, Z, C#Point[A]] =
-        fe.asInstanceOf[F2[G, Z, C#Point[A]]]      // already proven equivalent; actual evaluation requires a Functor
-    }
-
-    implicit def corecurseH3[F[_[_], _, _, _], F2[_[_], _, _, _], G[_], Y, Z, E, C <: Effects, A0](implicit ev: PermuteH3[F, F2], W: Wrapper.Aux[E, C, A0]): Wrapper.Aux[F2[G, Y, Z, E], F2[G, Y, Z, ?] |: C, A0] = new Wrapper[F2[G, Y, Z, E], F2[G, Y, Z, ?] |: C] {
-      type A = A0
-
-      def apply(fe: F2[G, Y, Z, E]): F2[G, Y, Z, C#Point[A]] =
-        fe.asInstanceOf[F2[G, Y, Z, C#Point[A]]]      // already proven equivalent; actual evaluation requires a Functor
     }
   }
 }

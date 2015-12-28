@@ -127,6 +127,22 @@ object EmmSpecs extends Specification {
       }
     }
 
+    "allow wrapping of two paired constructors where one is state" in {
+      "inner" >> {
+        type E = Option |: State[String, ?] |: Base
+
+        Option(State.state[String, Int](42)).wrapM must haveType[Emm[Option |: State[String, ?] |: Base, Int]].attempt
+        Option(State.state[String, Int](42)).wrapM[E] must haveType[Emm[Option |: State[String, ?] |: Base, Int]].attempt
+      }
+
+      "outer" >> {
+        type E = State[String, ?] |: Option |: Base
+
+        State.state[String, Option[Int]](Option(42)).wrapM must haveType[Emm[State[String, ?] |: Option |: Base, Int]].attempt
+        State.state[String, Option[Int]](Option(42)).wrapM[E] must haveType[Emm[State[String, ?] |: Option |: Base, Int]].attempt
+      }
+    }
+
     "allow mapping" in {
       val opt: Option[Int] = Some(42)
       val e = opt.liftM[List |: Option |: Base]
@@ -170,6 +186,20 @@ object EmmSpecs extends Specification {
         type E = Free[List, ?] |: Option |: Base
 
         (42.pointM[E] flatMap { _ => "foo".pointM[E] } run).runM(identity) mustEqual List(Option("foo"))
+      }
+    }
+
+    "bind over a stack that contains state" in {
+      "empty" >> {
+        type E = State[String, ?] |: Base
+
+        (42.pointM[E] flatMap { _ => "foo".pointM[E] }).run.eval("blah") mustEqual "foo"
+      }
+
+      "outer" >> {
+        type E = State[String, ?] |: Option |: Base
+
+        (42.pointM[E] flatMap { _ => "foo".pointM[E] }).run.eval("blah") must beSome("foo")
       }
     }
 
@@ -276,6 +306,24 @@ object EmmSpecs extends Specification {
         e.run must beLike {
           case \/-(t) => t.run mustEqual \/-(42)
         }
+      }
+    }
+
+    "allow both expansion and collapse of base with state" in {
+      "inner" >> {
+        type E = Task |: State[String, ?] |: Base
+
+        val e = (Task now 42).liftM[E].expand map { s => State.state[String, Int](s.eval("blerg") + 12) } collapse
+
+        e.run.run.eval("boo") mustEqual 54
+      }
+
+      "outer" >> {
+        type E = State[String, ?] |: Task |: Base
+
+        val e = (Task now 42).liftM[E].expand map { _.attempt } collapse
+
+        e.run.eval("boo").run mustEqual \/-(42)
       }
     }
 
