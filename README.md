@@ -255,3 +255,21 @@ If monad transformers weren't a thing (or more notably, if it weren't idiomatic 
 The good news is that overcoming these limitations is largely a matter of typing, albeit a *lot* of typing.  It's certainly possible to enable support for `State` (and similarly-defined effects), but I haven't done it yet because the work involved is both significant and boring.  In the meantime, only effects with a base type who's kind is on the list above are supported by `Emm`.
 
 Moral of the story: library authors, newtype your effects!  It makes everyone's lives easier.
+
+### `StateT` vs `Emm` with `State`
+
+So there's something very subtle about how `StateT` is defined, relative to `State`.  Let's look at some simplified type signatures:
+
+```scala
+class State[S, A](f: S => (S, A))
+
+class StateT[F[_], S, A](f: F[S => F[(S, A)]])
+```
+
+See the difference?  The trick is that `StateT` has the effect both at the outer level and within the state generator function.  In other words, `StateT` and `State` are fundamentally different monads, though `StateT` degrades to `State` if you instantiate it with `Id`.
+
+If you think about it, this bit of trickery is absolutely required if you want to define `flatMap` on `StateT`.  You'll notice that there is no instance of `Traverse[State[S, ?]]`, nor could there be.  And this is where we start running into some problems with `Emm`.
+
+At present, `State` is treated basically the same as any other monad without a `Traverse`.  So in other words, just like `IO`, `Task` and similar.  If you want to use `flatMap` on your effect stack, you *must* have your `State` as the outer-most effect.  This is a serious limitation, because it means that you cannot have a bindable effect stack which contains *both* `IO` and `State`.  This is notably different from monad transformers, where `StateT[IO, S, A]` is a definable and useful type (because, remember, `StateT` is a different monad from `State`).
+
+So that's annoying...  I don't have a solution to it yet.
