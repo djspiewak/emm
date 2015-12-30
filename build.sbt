@@ -11,8 +11,8 @@ scalaVersion := "2.11.7"
 crossScalaVersions := Seq(scalaVersion.value, "2.10.6")
 
 libraryDependencies ++= Seq(
-  "org.scalaz" %% "scalaz-core" % "7.1.6",
-
+  "org.spire-math" %% "cats" % "0.3.0",
+  "org.scalaz" %% "scalaz-core" % "7.1.6" % "test",
   "org.specs2" %% "specs2-core" % "3.6.6" % "test")
 
 addCompilerPlugin("org.spire-math" % "kind-projector" % "0.7.1" cross CrossVersion.binary)

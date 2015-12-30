@@ -2,9 +2,9 @@ package emm
 
 import org.specs2.mutable._
 
-import scalaz._
-import scalaz.std.list._
-import scalaz.std.option._
+import cats._
+import cats.std.list._
+import cats.std.option._
 
 object ApplicativeSpecs extends Specification {
 
@@ -23,8 +23,8 @@ object ApplicativeSpecs extends Specification {
       val A = Applicative[Emm[E, ?]]
       val M = Monad[Emm[E, ?]]
 
-      A.ap(a)(b) mustEqual (M.bind(b) { b => M.map(a)(b) })
-      M.ap(a)(b) mustEqual (M.bind(b) { b => M.map(a)(b) })
+      A.ap(a)(b) mustEqual (M.flatMap(b) { b => M.map(a)(b) })
+      M.ap(a)(b) mustEqual (M.flatMap(b) { b => M.map(a)(b) })
     }
   }
 }

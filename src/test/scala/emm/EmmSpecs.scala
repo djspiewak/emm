@@ -3,14 +3,41 @@ package emm
 import org.specs2.mutable._
 import org.specs2.matcher._
 
-import scalaz._
+import cats._
+import cats.data._
+import cats.state.State
+import cats.free.Free
+import cats.std.list._
+import cats.std.option._
+import cats.std.function._
+
 import scalaz.concurrent.Task
-import scalaz.std.list._
-import scalaz.std.option._
+import scalaz.\/-
 
 import scala.reflect.runtime.universe.TypeTag
 
 object EmmSpecs extends Specification {
+
+  implicit def freeTraverse[F[_]](implicit trF: Traverse[F]): Traverse[Free[F, ?]] = new Traverse[Free[F, ?]] {
+    def traverse[G[_], A, B](fa: Free[F, A])(f: A => G[B])(implicit ap: Applicative[G]): G[Free[F, B]] =
+      fa.resume match {
+        case Xor.Left(s) => ap.map(trF.traverse(s)(fa => traverse[G, A ,B](fa)(f)))(ffa => Free.liftF(ffa).flatMap(a => a))
+        case Xor.Right(a) => ap.map(f(a))(Free.pure(_))
+      }
+
+    def foldLeft[A, B](fa: Free[F, A], b: B)(f: (B, A) => B): B = ???
+
+    def foldRight[A, B](fa: Free[F, A], lb: Eval[B])(f: (A, Eval[B]) => Eval[B]): Eval[B] = ???
+  }
+
+  implicit val taskFlatMap: Monad[Task] = new Monad[Task] {
+    import scalaz.concurrent.Future
+    def pure[A](x: A): Task[A] = new Task(Future.delay(Task.Try(x)))
+    
+    def flatMap[A, B](fa: Task[A])(f: A => Task[B]): Task[B] = {
+      fa.flatMap(f)
+    }
+  }
 
   "simple effect composition" should {
     "define pointM" in {
@@ -34,17 +61,17 @@ object EmmSpecs extends Specification {
 
     "lift into a stack that contains a partially-applied arity-2 constructor" in {
       "inner" >> {
-        type E = Option |: (String \/ ?) |: Base
+        type E = Option |: (String Xor ?) |: Base
 
-        \/.right[String, Int](42).liftM[E] mustEqual Emm[E, Int](Option(\/-(42)))
-        \/.left[String, Int]("fuuuuuu").liftM[E] mustEqual Emm[E, Int](Option(-\/("fuuuuuu")))
+        Xor.right[String, Int](42).liftM[E] mustEqual Emm[E, Int](Option(Xor.right(42)))
+        Xor.left[String, Int]("fuuuuuu").liftM[E] mustEqual Emm[E, Int](Option(Xor.left("fuuuuuu")))
       }
 
       "outer" >> {
-        type E = (String \/ ?) |: Option |: Base
+        type E = (String Xor ?) |: Option |: Base
 
-        \/.right[String, Int](42).liftM[E] mustEqual Emm[E, Int](\/-(Option(42)))
-        \/.left[String, Int]("fuuuuuu").liftM[E] mustEqual Emm[E, Int](-\/("fuuuuuu"))
+        Xor.right[String, Int](42).liftM[E] mustEqual Emm[E, Int](Xor.right(Option(42)))
+        Xor.left[String, Int]("fuuuuuu").liftM[E] mustEqual Emm[E, Int](Xor.left("fuuuuuu"))
       }
     }
 
@@ -52,7 +79,7 @@ object EmmSpecs extends Specification {
       "inner" >> {
         type E = Option |: Free[List, ?] |: Base
 
-        Free.point[List, Int](42).liftM[E].run must beLike {
+        Free.pure[List, Int](42).liftM[E].run must beLike {
           case Some(f) => f runM identity mustEqual List(42)
         }
 
@@ -64,29 +91,29 @@ object EmmSpecs extends Specification {
       "outer" >> {
         type E = Free[List, ?] |: Option |: Base
 
-        Free.point[List, Int](42).liftM[E].run.runM(identity) mustEqual List(Option(42))
+        Free.pure[List, Int](42).liftM[E].run.runM(identity) mustEqual List(Option(42))
         Option(42).liftM[E].run.runM(identity) mustEqual List(Option(42))
       }
     }
 
     "lift into a stack that contains a partially-applied arity-2 higher-order constructor and an arity-2 constructor" in {
       "inner" >> {
-        type E = (String \/ ?) |: Free[List, ?] |: Base
+        type E = (String Xor ?) |: Free[List, ?] |: Base
 
-        Free.point[List, Int](42).liftM[E].run must beLike {
-          case \/-(f) => f runM identity mustEqual List(42)
+        Free.pure[List, Int](42).liftM[E].run must beLike {
+          case Xor.Right(f) => f runM identity mustEqual List(42)
         }
 
-        \/.right[String, Int](42).liftM[E].run must beLike {
-          case \/-(f) => f runM identity mustEqual List(42)
+        Xor.right[String, Int](42).liftM[E].run must beLike {
+          case Xor.Right(f) => f runM identity mustEqual List(42)
         }
       }
 
       "outer" >> {
-        type E = Free[List, ?] |: (String \/ ?) |: Base
+        type E = Free[List, ?] |: (String Xor ?) |: Base
 
-        Free.point[List, Int](42).liftM[E].run.runM(identity) mustEqual List(\/-(42))
-        \/.right[String, Int](42).liftM[E].run.runM(identity) mustEqual List(\/-(42))
+        Free.pure[List, Int](42).liftM[E].run.runM(identity) mustEqual List(Xor.right(42))
+        Xor.right[String, Int](42).liftM[E].run.runM(identity) mustEqual List(Xor.right(42))
       }
     }
 
@@ -97,17 +124,17 @@ object EmmSpecs extends Specification {
 
     "allow wrapping of two paired constructors where one has arity-2" in {
       "inner" >> {
-        type E = Option |: (String \/ ?) |: Base
+        type E = Option |: (String Xor ?) |: Base
 
-        Option(\/.right[String, Int](42)).wrapM must haveType[Emm[Option |: (String \/ ?) |: Base, Int]].attempt
-        Option(\/.right[String, Int](42)).wrapM[E] must haveType[Emm[Option |: (String \/ ?) |: Base, Int]].attempt
+        Option(Xor.right[String, Int](42)).wrapM must haveType[Emm[Option |: (String Xor ?) |: Base, Int]].attempt
+        Option(Xor.right[String, Int](42)).wrapM[E] must haveType[Emm[Option |: (String Xor ?) |: Base, Int]].attempt
       }
 
       "outer" >> {
-        type E = (String \/ ?) |: Option |: Base
+        type E = (String Xor ?) |: Option |: Base
 
-        \/.right[String, Option[Int]](Option(42)).wrapM must haveType[Emm[(String \/ ?) |: Option |: Base, Int]].attempt
-        \/.right[String, Option[Int]](Option(42)).wrapM[E] must haveType[Emm[(String \/ ?) |: Option |: Base, Int]].attempt
+        Xor.right[String, Option[Int]](Option(42)).wrapM must haveType[Emm[(String Xor ?) |: Option |: Base, Int]].attempt
+        Xor.right[String, Option[Int]](Option(42)).wrapM[E] must haveType[Emm[(String Xor ?) |: Option |: Base, Int]].attempt
       }
     }
 
@@ -115,15 +142,15 @@ object EmmSpecs extends Specification {
       "inner" >> {
         type E = Option |: Free[List, ?] |: Base
 
-        Option(Free.point[List, Int](42)).wrapM must haveType[Emm[Option |: Free[List, ?] |: Base, Int]].attempt
-        Option(Free.point[List, Int](42)).wrapM[E] must haveType[Emm[Option |: Free[List, ?] |: Base, Int]].attempt
+        Option(Free.pure[List, Int](42)).wrapM must haveType[Emm[Option |: Free[List, ?] |: Base, Int]].attempt
+        Option(Free.pure[List, Int](42)).wrapM[E] must haveType[Emm[Option |: Free[List, ?] |: Base, Int]].attempt
       }
 
       "outer" >> {
         type E = Free[List, ?] |: Option |: Base
 
-        Free.point[List, Option[Int]](Option(42)).wrapM must haveType[Emm[Free[List, ?] |: Option |: Base, Int]].attempt
-        Free.point[List, Option[Int]](Option(42)).wrapM[E] must haveType[Emm[Free[List, ?] |: Option |: Base, Int]].attempt
+        Free.pure[List, Option[Int]](Option(42)).wrapM must haveType[Emm[Free[List, ?] |: Option |: Base, Int]].attempt
+        Free.pure[List, Option[Int]](Option(42)).wrapM[E] must haveType[Emm[Free[List, ?] |: Option |: Base, Int]].attempt
       }
     }
 
@@ -131,15 +158,15 @@ object EmmSpecs extends Specification {
       "inner" >> {
         type E = Option |: State[String, ?] |: Base
 
-        Option(State.state[String, Int](42)).wrapM must haveType[Emm[Option |: State[String, ?] |: Base, Int]].attempt
-        Option(State.state[String, Int](42)).wrapM[E] must haveType[Emm[Option |: State[String, ?] |: Base, Int]].attempt
+        Option(State.pure[String, Int](42)).wrapM must haveType[Emm[Option |: State[String, ?] |: Base, Int]].attempt
+        Option(State.pure[String, Int](42)).wrapM[E] must haveType[Emm[Option |: State[String, ?] |: Base, Int]].attempt
       }
 
       "outer" >> {
         type E = State[String, ?] |: Option |: Base
 
-        State.state[String, Option[Int]](Option(42)).wrapM must haveType[Emm[State[String, ?] |: Option |: Base, Int]].attempt
-        State.state[String, Option[Int]](Option(42)).wrapM[E] must haveType[Emm[State[String, ?] |: Option |: Base, Int]].attempt
+        State.pure[String, Option[Int]](Option(42)).wrapM must haveType[Emm[State[String, ?] |: Option |: Base, Int]].attempt
+        State.pure[String, Option[Int]](Option(42)).wrapM[E] must haveType[Emm[State[String, ?] |: Option |: Base, Int]].attempt
       }
     }
 
@@ -162,9 +189,9 @@ object EmmSpecs extends Specification {
     }
 
     "bind over a stack that contains a partially-applied arity-2 constructor" in {
-      type E = (String \/ ?) |: Base
+      type E = (String Xor ?) |: Base
 
-      42.pointM[E] flatMap { _ => "foo".pointM[E] } mustEqual Emm[E, String](\/-("foo"))
+      42.pointM[E] flatMap { _ => "foo".pointM[E] } mustEqual Emm[E, String](Xor.right("foo"))
     }
 
     "bind over a stack that contains a partially-applied arity-2 higher-order constructor" in {
@@ -176,7 +203,7 @@ object EmmSpecs extends Specification {
 
       "inner" >> {
         type E = Option |: Free[List, ?] |: Base
-
+        implicitly[Effects.Traverser[Free[List, ?] |: Base]]
         (42.pointM[E] flatMap { _ => "foo".pointM[E] } run) must beLike {
           case Some(f) => f.runM(identity) mustEqual List("foo")
         }
@@ -193,13 +220,13 @@ object EmmSpecs extends Specification {
       "empty" >> {
         type E = State[String, ?] |: Base
 
-        (42.pointM[E] flatMap { _ => "foo".pointM[E] }).run.eval("blah") mustEqual "foo"
+        (42.pointM[E] flatMap { _ => "foo".pointM[E] }).run.runA("blah").run mustEqual "foo"
       }
 
       "outer" >> {
         type E = State[String, ?] |: Option |: Base
 
-        (42.pointM[E] flatMap { _ => "foo".pointM[E] }).run.eval("blah") must beSome("foo")
+        (42.pointM[E] flatMap { _ => "foo".pointM[E] }).run.runA("blah").run must beSome("foo")
       }
     }
 
@@ -214,20 +241,20 @@ object EmmSpecs extends Specification {
     }
 
     "allow flatMapM on a stack containing an arity-2 constructor" in {
-      type E = List |: (String \/ ?) |: Base
+      type E = List |: (String Xor ?) |: Base
 
       val e1 = List(1, 2, 3, 4).liftM[E]
-      val e2 = e1 flatMapM { v => if (v % 2 == 0) \/-(v) else -\/("that's... odd") }
+      val e2 = e1 flatMapM { v => if (v % 2 == 0) Xor.right(v) else Xor.left("that's... odd") }
       val e3 = e2 flatMapM { v => List(v, v) }
 
-      e3 mustEqual Emm[E, Int](List(-\/("that's... odd"), \/-(2), \/-(2), -\/("that's... odd"), \/-(4), \/-(4)))
+      e3 mustEqual Emm[E, Int](List(Xor.left("that's... odd"), Xor.right(2), Xor.right(2), Xor.left("that's... odd"), Xor.right(4), Xor.right(4)))
     }
 
     "allow flatMapM on a stack containing a higher-order arity-2 constructor" in {
       type E = List |: Free[Option, ?] |: Base
 
       val e1 = List(1, 2, 3, 4).liftM[E]
-      val e2 = e1 flatMapM { v => if (v % 2 == 0) Free.point[Option, Int](v) else Free.liftF[Option, Int](None) }
+      val e2 = e1 flatMapM { v => if (v % 2 == 0) Free.pure[Option, Int](v) else Free.liftF[Option, Int](None) }
       val e3 = e2 flatMapM { v => List(v, v) }
 
       e3.run must beLike {
@@ -291,20 +318,20 @@ object EmmSpecs extends Specification {
 
     "allow both expansion and collapse of base with an arity-2 constructor" in {
       "inner" >> {
-        type E = Task |: (String \/ ?) |: Base
+        type E = Task |: (String Xor ?) |: Base
 
         val e = (Task now 42).liftM[E].expand map { _.swap } collapse
 
-        e.run.run mustEqual -\/(42)
+        e.run.run mustEqual Xor.left(42)
       }
 
       "outer" >> {
-        type E = (String \/ ?) |: Task |: Base
+        type E = (String Xor ?) |: Task |: Base
 
         val e = (Task now 42).liftM[E].expand map { _.attempt } collapse
 
         e.run must beLike {
-          case \/-(t) => t.run mustEqual \/-(42)
+          case Xor.Right(t) => t.run mustEqual \/-(42)
         }
       }
     }
@@ -313,9 +340,9 @@ object EmmSpecs extends Specification {
       "inner" >> {
         type E = Task |: State[String, ?] |: Base
 
-        val e = (Task now 42).liftM[E].expand map { s => State.state[String, Int](s.eval("blerg") + 12) } collapse
+        val e = (Task now 42).liftM[E].expand map { s => State.pure[String, Int](s.runA("blerg").run + 12) } collapse
 
-        e.run.run.eval("boo") mustEqual 54
+        e.run.run.runA("boo").run mustEqual 54
       }
 
       "outer" >> {
@@ -323,7 +350,7 @@ object EmmSpecs extends Specification {
 
         val e = (Task now 42).liftM[E].expand map { _.attempt } collapse
 
-        e.run.eval("boo").run mustEqual \/-(42)
+        e.run.runA("boo").run.run mustEqual \/-(42)
       }
     }
 

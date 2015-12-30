@@ -1,6 +1,6 @@
 package emm
 
-import scalaz.{Applicative, Bind, Functor, Monad, Traverse}
+import cats.{Applicative, FlatMap, Functor, Monad, Traverse, Eval}
 
 import scala.annotation.implicitNotFound
 
@@ -29,11 +29,11 @@ object Effects {
   }
 
   trait MapperLowPriorityImplicits {
-    import scalaz.State
+    import cats.state.State
 
     implicit def headState[S]: Mapper[State[S, ?] |: Base] = new Mapper[State[S, ?] |: Base] {
 
-      def point[A](a: A) = State.state(a)
+      def point[A](a: A) = State.pure(a)
 
       def map[A, B](fa: State[S, A])(f: A => B): State[S, B] = fa map f
 
@@ -42,7 +42,7 @@ object Effects {
 
     implicit def corecurseState[S, C <: Effects](implicit P: Mapper[C]): Mapper[State[S, ?] |: C] = new Mapper[State[S, ?] |: C] {
 
-      def point[A](a: A) = State.state(P.point(a))
+      def point[A](a: A) = State.pure(P.point(a))
 
       def map[A, B](fa: State[S, C#Point[A]])(f: A => B): State[S, C#Point[B]] = fa map { a => P.map(a)(f) }
 
@@ -60,7 +60,7 @@ object Effects {
 
     implicit def head1[F[_]](implicit F: Applicative[F]): Mapper[F |: Base] = new Mapper[F |: Base] {
 
-      def point[A](a: A) = F.point(a)
+      def point[A](a: A) = F.pure(a)
 
       def map[A, B](fa: F[A])(f: A => B): F[B] = F.map(fa)(f)
 
@@ -69,7 +69,7 @@ object Effects {
 
     implicit def head2[F[_, _], F2[_, _], Z](implicit ev: Permute2[F, F2], F: Applicative[F2[Z, ?]]): Mapper[F2[Z, ?] |: Base] = new Mapper[F2[Z, ?] |: Base] {
 
-      def point[A](a: A) = F.point(a)
+      def point[A](a: A) = F.pure(a)
 
       def map[A, B](fa: F2[Z, A])(f: A => B) = F.map(fa)(f)
 
@@ -78,7 +78,7 @@ object Effects {
 
     implicit def head3[F[_, _, _], F2[_, _, _], Y, Z](implicit ev: Permute3[F, F2], F: Applicative[F2[Y, Z, ?]]): Mapper[F2[Y, Z, ?] |: Base] = new Mapper[F2[Y, Z, ?] |: Base] {
 
-      def point[A](a: A) = F.point(a)
+      def point[A](a: A) = F.pure(a)
 
       def map[A, B](fa: F2[Y, Z, A])(f: A => B) = F.map(fa)(f)
 
@@ -87,7 +87,7 @@ object Effects {
 
     implicit def headH1[F[_[_], _], G[_]](implicit F: Applicative[F[G, ?]]): Mapper[F[G, ?] |: Base] = new Mapper[F[G, ?] |: Base] {
 
-      def point[A](a: A) = F.point(a)
+      def point[A](a: A) = F.pure(a)
 
       def map[A, B](fa: F[G, A])(f: A => B): F[G, B] = F.map(fa)(f)
 
@@ -96,7 +96,7 @@ object Effects {
 
     implicit def headH2[F[_[_], _, _], F2[_[_], _, _], G[_], Z](implicit ev: PermuteH2[F, F2], F: Applicative[F2[G, Z, ?]]): Mapper[F2[G, Z, ?] |: Base] = new Mapper[F2[G, Z, ?] |: Base] {
 
-      def point[A](a: A) = F.point(a)
+      def point[A](a: A) = F.pure(a)
 
       def map[A, B](fa: F2[G, Z, A])(f: A => B): F2[G, Z, B] = F.map(fa)(f)
 
@@ -105,7 +105,7 @@ object Effects {
 
     implicit def headH3[F[_[_], _, _, _], F2[_[_], _, _, _], G[_], Y, Z](implicit ev: PermuteH3[F, F2], F: Applicative[F2[G, Y, Z, ?]]): Mapper[F2[G, Y, Z, ?] |: Base] = new Mapper[F2[G, Y, Z, ?] |: Base] {
 
-      def point[A](a: A) = F.point(a)
+      def point[A](a: A) = F.pure(a)
 
       def map[A, B](fa: F2[G, Y, Z, A])(f: A => B): F2[G, Y, Z, B] = F.map(fa)(f)
 
@@ -114,7 +114,7 @@ object Effects {
 
     implicit def corecurse1[F[_], C <: Effects](implicit P: Mapper[C], F: Applicative[F]): Mapper[F |: C] = new Mapper[F |: C] {
 
-      def point[A](a: A) = F.point(P.point(a))
+      def point[A](a: A) = F.pure(P.point(a))
 
       def map[A, B](fa: F[C#Point[A]])(f: A => B): F[C#Point[B]] =
         F.map(fa) { ca => P.map(ca)(f) }
@@ -130,7 +130,7 @@ object Effects {
 
     implicit def corecurse2[F[_, _], F2[_, _], Z, C <: Effects](implicit ev: Permute2[F, F2], P: Mapper[C], F: Applicative[F2[Z, ?]]): Mapper[F2[Z, ?] |: C] = new Mapper[F2[Z, ?] |: C] {
 
-      def point[A](a: A) = F.point(P.point(a))
+      def point[A](a: A) = F.pure(P.point(a))
 
       def map[A, B](fa: F2[Z, C#Point[A]])(f: A => B): F2[Z, C#Point[B]] =
         F.map(fa) { ca => P.map(ca)(f) }
@@ -146,7 +146,7 @@ object Effects {
 
     implicit def corecurse3[F[_, _, _], F2[_, _, _], Y, Z, C <: Effects](implicit ev: Permute3[F, F2], P: Mapper[C], F: Applicative[F2[Y, Z, ?]]): Mapper[F2[Y, Z, ?] |: C] = new Mapper[F2[Y, Z, ?] |: C] {
 
-      def point[A](a: A) = F.point(P.point(a))
+      def point[A](a: A) = F.pure(P.point(a))
 
       def map[A, B](fa: F2[Y, Z, C#Point[A]])(f: A => B): F2[Y, Z, C#Point[B]] =
         F.map(fa) { ca => P.map(ca)(f) }
@@ -162,7 +162,7 @@ object Effects {
 
     implicit def corecurseH1[F[_[_], _], G[_], C <: Effects](implicit P: Mapper[C], F: Applicative[F[G, ?]]): Mapper[F[G, ?] |: C] = new Mapper[F[G, ?] |: C] {
 
-      def point[A](a: A) = F.point(P.point(a))
+      def point[A](a: A) = F.pure(P.point(a))
 
       def map[A, B](fa: F[G, C#Point[A]])(f: A => B): F[G, C#Point[B]] =
         F.map(fa) { ca => P.map(ca)(f) }
@@ -178,7 +178,7 @@ object Effects {
 
     implicit def corecurseH2[F[_[_], _, _], F2[_[_], _, _], G[_], Z, C <: Effects](implicit ev: PermuteH2[F, F2], P: Mapper[C], F: Applicative[F[G, Z, ?]]): Mapper[F[G, Z, ?] |: C] = new Mapper[F[G, Z, ?] |: C] {
 
-      def point[A](a: A) = F.point(P.point(a))
+      def point[A](a: A) = F.pure(P.point(a))
 
       def map[A, B](fa: F[G, Z, C#Point[A]])(f: A => B): F[G, Z, C#Point[B]] =
         F.map(fa) { ca => P.map(ca)(f) }
@@ -194,7 +194,7 @@ object Effects {
 
     implicit def corecurseH3[F[_[_], _, _, _], F2[_[_], _, _, _], G[_], Y, Z, C <: Effects](implicit ev: PermuteH3[F, F2], P: Mapper[C], F: Applicative[F[G, Y, Z, ?]]): Mapper[F[G, Y, Z, ?] |: C] = new Mapper[F[G, Y, Z, ?] |: C] {
 
-      def point[A](a: A) = F.point(P.point(a))
+      def point[A](a: A) = F.pure(P.point(a))
 
       def map[A, B](fa: F[G, Y, Z, C#Point[A]])(f: A => B): F[G, Y, Z, C#Point[B]] =
         F.map(fa) { ca => P.map(ca)(f) }
@@ -211,32 +211,46 @@ object Effects {
 
   trait Traverser[C <: Effects] {
     def traverse[G[_]: Applicative, A, B](ca: C#Point[A])(f: A => G[B]): G[C#Point[B]]
+    def foldLeft[A, B](fa: C#Point[A], b: B)(f: (B, A) => B): B
+    def foldRight[A, B](fa: C#Point[A], lb: Eval[B])(f: (A, Eval[B]) => Eval[B]): Eval[B]
   }
 
   object Traverser {
 
     implicit def head1[F[_]](implicit F: Traverse[F]): Traverser[F |: Base] = new Traverser[F |: Base] {
       def traverse[G[_]: Applicative, A, B](fa: F[A])(f: A => G[B]): G[F[B]] = F.traverse(fa)(f)
+      def foldLeft[A, B](fa: F[A], b: B)(f: (B, A) => B): B = F.foldLeft(fa, b)(f)
+      def foldRight[A, B](fa: F[A], lb: Eval[B])(f: (A, Eval[B]) => Eval[B]): Eval[B] = F.foldRight(fa, lb)(f)
     }
 
     implicit def head2[F[_, _], F2[_, _], Z](implicit ev: Permute2[F, F2], F: Traverse[F2[Z, ?]]): Traverser[F2[Z, ?] |: Base] = new Traverser[F2[Z, ?] |: Base] {
       def traverse[G[_]: Applicative, A, B](fa: F2[Z, A])(f: A => G[B]): G[F2[Z, B]] = F.traverse(fa)(f)
+      def foldLeft[A, B](fa: F2[Z, A], b: B)(f: (B, A) => B): B = F.foldLeft(fa, b)(f)
+      def foldRight[A, B](fa: F2[Z, A], lb: Eval[B])(f: (A, Eval[B]) => Eval[B]): Eval[B] = F.foldRight(fa, lb)(f)
     }
 
     implicit def head3[F[_, _, _], F2[_, _, _], Y, Z](implicit ev: Permute3[F, F2], F: Traverse[F2[Y, Z, ?]]): Traverser[F2[Y, Z, ?] |: Base] = new Traverser[F2[Y, Z, ?] |: Base] {
       def traverse[G[_]: Applicative, A, B](fa: F2[Y, Z, A])(f: A => G[B]): G[F2[Y, Z, B]] = F.traverse(fa)(f)
+      def foldLeft[A, B](fa: F2[Y, Z, A], b: B)(f: (B, A) => B): B = F.foldLeft(fa, b)(f)
+      def foldRight[A, B](fa: F2[Y, Z, A], lb: Eval[B])(f: (A, Eval[B]) => Eval[B]): Eval[B] = F.foldRight(fa, lb)(f)
     }
 
     implicit def headH1[F[_[_], _], G0[_]](implicit F: Traverse[F[G0, ?]]): Traverser[F[G0, ?] |: Base] = new Traverser[F[G0, ?] |: Base] {
       def traverse[G[_]: Applicative, A, B](fa: F[G0, A])(f: A => G[B]): G[F[G0, B]] = F.traverse(fa)(f)
+      def foldLeft[A, B](fa: F[G0, A], b: B)(f: (B, A) => B): B = F.foldLeft(fa, b)(f)
+      def foldRight[A, B](fa: F[G0, A], lb: Eval[B])(f: (A, Eval[B]) => Eval[B]): Eval[B] = F.foldRight(fa, lb)(f)
     }
 
     implicit def headH2[F[_[_], _, _], F2[_[_], _, _], G0[_], Z](implicit ev: PermuteH2[F, F2], F: Traverse[F2[G0, Z, ?]]): Traverser[F2[G0, Z, ?] |: Base] = new Traverser[F2[G0, Z, ?] |: Base] {
       def traverse[G[_]: Applicative, A, B](fa: F2[G0, Z, A])(f: A => G[B]): G[F2[G0, Z, B]] = F.traverse(fa)(f)
+      def foldLeft[A, B](fa: F2[G0, Z, A], b: B)(f: (B, A) => B): B = F.foldLeft(fa, b)(f)
+      def foldRight[A, B](fa: F2[G0, Z, A], lb: Eval[B])(f: (A, Eval[B]) => Eval[B]): Eval[B] = F.foldRight(fa, lb)(f)
     }
 
     implicit def headH3[F[_[_], _, _, _], F2[_[_], _, _, _], G0[_], Y, Z](implicit ev: PermuteH3[F, F2], F: Traverse[F2[G0, Y, Z, ?]]): Traverser[F2[G0, Y, Z, ?] |: Base] = new Traverser[F2[G0, Y, Z, ?] |: Base] {
       def traverse[G[_]: Applicative, A, B](fa: F2[G0, Y, Z, A])(f: A => G[B]): G[F2[G0, Y, Z, B]] = F.traverse(fa)(f)
+      def foldLeft[A, B](fa: F2[G0, Y, Z, A], b: B)(f: (B, A) => B): B = F.foldLeft(fa, b)(f)
+      def foldRight[A, B](fa: F2[G0, Y, Z, A], lb: Eval[B])(f: (A, Eval[B]) => Eval[B]): Eval[B] = F.foldRight(fa, lb)(f)
     }
 
     implicit def corecurse1[F[_], C <: Effects](implicit C: Traverser[C], F: Traverse[F]): Traverser[F |: C] = new Traverser[F |: C] {
@@ -246,6 +260,19 @@ object Effects {
           C.traverse(ca)(f)
         }
       }
+
+      def foldLeft[A, B](fca: F[C#Point[A]], b: B)(f: (B, A) => B): B = {
+        F.foldLeft(fca, b) { (b, ca) =>
+          C.foldLeft(ca, b)(f)
+        }
+      }
+
+      def foldRight[A, B](fca: F[C#Point[A]], lb: Eval[B])(f: (A, Eval[B]) => Eval[B]): Eval[B] = {
+        F.foldRight(fca, lb) { (ca, eb) =>
+          C.foldRight(ca, eb)(f)
+        }
+      }
+
     }
 
     implicit def corecurse2[F[_, _], F2[_, _], Z, C <: Effects](implicit ev: Permute2[F, F2], C: Traverser[C], F: Traverse[F2[Z, ?]]): Traverser[F2[Z, ?] |: C] = new Traverser[F2[Z, ?] |: C] {
@@ -253,6 +280,18 @@ object Effects {
       def traverse[G[_]: Applicative, A, B](fca: F2[Z, C#Point[A]])(f: A => G[B]): G[F2[Z, C#Point[B]]] = {
         F.traverse(fca) { ca =>
           C.traverse(ca)(f)
+        }
+      }
+
+      def foldLeft[A, B](fca: F2[Z, C#Point[A]], b: B)(f: (B, A) => B): B = {
+        F.foldLeft(fca, b) { (b, ca) =>
+          C.foldLeft(ca, b)(f)
+        }
+      }
+
+      def foldRight[A, B](fca: F2[Z, C#Point[A]], lb: Eval[B])(f: (A, Eval[B]) => Eval[B]): Eval[B] = {
+        F.foldRight(fca, lb) { (ca, eb) =>
+          C.foldRight(ca, eb)(f)
         }
       }
     }
@@ -264,6 +303,18 @@ object Effects {
           C.traverse(ca)(f)
         }
       }
+
+      def foldLeft[A, B](fca: F2[Y, Z, C#Point[A]], b: B)(f: (B, A) => B): B = {
+        F.foldLeft(fca, b) { (b, ca) =>
+          C.foldLeft(ca, b)(f)
+        }
+      }
+
+      def foldRight[A, B](fca: F2[Y, Z, C#Point[A]], lb: Eval[B])(f: (A, Eval[B]) => Eval[B]): Eval[B] = {
+        F.foldRight(fca, lb) { (ca, eb) =>
+          C.foldRight(ca, eb)(f)
+        }
+      }
     }
 
     implicit def corecurseH1[F[_[_], _], G0[_], C <: Effects](implicit C: Traverser[C], F: Traverse[F[G0, ?]]): Traverser[F[G0, ?] |: C] = new Traverser[F[G0, ?] |: C] {
@@ -271,6 +322,18 @@ object Effects {
       def traverse[G[_]: Applicative, A, B](fca: F[G0, C#Point[A]])(f: A => G[B]): G[F[G0, C#Point[B]]] = {
         F.traverse(fca) { ca =>
           C.traverse(ca)(f)
+        }
+      }
+
+      def foldLeft[A, B](fca: F[G0, C#Point[A]], b: B)(f: (B, A) => B): B = {
+        F.foldLeft(fca, b) { (b, ca) =>
+          C.foldLeft(ca, b)(f)
+        }
+      }
+
+      def foldRight[A, B](fca: F[G0, C#Point[A]], lb: Eval[B])(f: (A, Eval[B]) => Eval[B]): Eval[B] = {
+        F.foldRight(fca, lb) { (ca, eb) =>
+          C.foldRight(ca, eb)(f)
         }
       }
     }
@@ -282,6 +345,18 @@ object Effects {
           C.traverse(ca)(f)
         }
       }
+
+      def foldLeft[A, B](fca: F[G0, Z, C#Point[A]], b: B)(f: (B, A) => B): B = {
+        F.foldLeft(fca, b) { (b, ca) =>
+          C.foldLeft(ca, b)(f)
+        }
+      }
+
+      def foldRight[A, B](fca: F[G0, Z, C#Point[A]], lb: Eval[B])(f: (A, Eval[B]) => Eval[B]): Eval[B] = {
+        F.foldRight(fca, lb) { (ca, eb) =>
+          C.foldRight(ca, eb)(f)
+        }
+      }
     }
 
     implicit def corecurseH3[F[_[_], _, _, _], F2[_[_], _, _, _], G0[_], Y, Z, C <: Effects](implicit ev: PermuteH3[F, F2], C: Traverser[C], F: Traverse[F[G0, Y, Z, ?]]): Traverser[F[G0, Y, Z, ?] |: C] = new Traverser[F[G0, Y, Z, ?] |: C] {
@@ -291,16 +366,28 @@ object Effects {
           C.traverse(ca)(f)
         }
       }
+
+      def foldLeft[A, B](fca: F[G0, Y, Z, C#Point[A]], b: B)(f: (B, A) => B): B = {
+        F.foldLeft(fca, b) { (b, ca) =>
+          C.foldLeft(ca, b)(f)
+        }
+      }
+
+      def foldRight[A, B](fca: F[G0, Y, Z, C#Point[A]], lb: Eval[B])(f: (A, Eval[B]) => Eval[B]): Eval[B] = {
+        F.foldRight(fca, lb) { (ca, eb) =>
+          C.foldRight(ca, eb)(f)
+        }
+      }
     }
   }
 
-  @implicitNotFound("could not prove ${C} is a valid monadic stack; perhaps an effect is lacking a Bind, or a non-outer effect is lacking a Traverse")
+  @implicitNotFound("could not prove ${C} is a valid monadic stack; perhaps an effect is lacking a FlatMap, or a non-outer effect is lacking a Traverse")
   trait Binder[C <: Effects] {
     def bind[A, B](cca: C#Point[A])(f: A => C#Point[B]): C#Point[B]
   }
 
   trait BinderLowPriorityImplicits {
-    import scalaz.State
+    import cats.state.State
 
     implicit def headState[S]: Binder[State[S, ?] |: Base] = new Binder[State[S, ?] |: Base] {
       def bind[A, B](fa: State[S, A])(f: A => State[S, B]) = fa flatMap f
@@ -320,34 +407,34 @@ object Effects {
 
   object Binder extends BinderLowPriorityImplicits {
 
-    implicit def head1[F[_]](implicit F: Bind[F]): Binder[F |: Base] = new Binder[F |: Base] {
-      def bind[A, B](fa: F[A])(f: A => F[B]): F[B] = F.bind(fa)(f)
+    implicit def head1[F[_]](implicit F: FlatMap[F]): Binder[F |: Base] = new Binder[F |: Base] {
+      def bind[A, B](fa: F[A])(f: A => F[B]): F[B] = F.flatMap(fa)(f)
     }
 
-    implicit def head2[F[_, _], F2[_, _], Z](implicit ev: Permute2[F, F2], F: Bind[F2[Z, ?]]): Binder[F2[Z, ?] |: Base] = new Binder[F2[Z, ?] |: Base] {
-      def bind[A, B](fa: F2[Z, A])(f: A => F2[Z, B]) = F.bind(fa)(f)
+    implicit def head2[F[_, _], F2[_, _], Z](implicit ev: Permute2[F, F2], F: FlatMap[F2[Z, ?]]): Binder[F2[Z, ?] |: Base] = new Binder[F2[Z, ?] |: Base] {
+      def bind[A, B](fa: F2[Z, A])(f: A => F2[Z, B]) = F.flatMap(fa)(f)
     }
 
-    implicit def head3[F[_, _, _], F2[_, _, _], Y, Z](implicit ev: Permute3[F, F2], F: Bind[F2[Y, Z, ?]]): Binder[F2[Y, Z, ?] |: Base] = new Binder[F2[Y, Z, ?] |: Base] {
-      def bind[A, B](fa: F2[Y, Z, A])(f: A => F2[Y, Z, B]) = F.bind(fa)(f)
+    implicit def head3[F[_, _, _], F2[_, _, _], Y, Z](implicit ev: Permute3[F, F2], F: FlatMap[F2[Y, Z, ?]]): Binder[F2[Y, Z, ?] |: Base] = new Binder[F2[Y, Z, ?] |: Base] {
+      def bind[A, B](fa: F2[Y, Z, A])(f: A => F2[Y, Z, B]) = F.flatMap(fa)(f)
     }
 
-    implicit def headH1[F[_[_], _], G[_]](implicit F: Bind[F[G, ?]]): Binder[F[G, ?] |: Base] = new Binder[F[G, ?] |: Base] {
-      def bind[A, B](fa: F[G, A])(f: A => F[G, B]): F[G, B] = F.bind(fa)(f)
+    implicit def headH1[F[_[_], _], G[_]](implicit F: FlatMap[F[G, ?]]): Binder[F[G, ?] |: Base] = new Binder[F[G, ?] |: Base] {
+      def bind[A, B](fa: F[G, A])(f: A => F[G, B]): F[G, B] = F.flatMap(fa)(f)
     }
 
-    implicit def headH2[F[_[_], _, _], F2[_[_], _, _], G[_], Z](implicit ev: PermuteH2[F, F2], F: Bind[F2[G, Z, ?]]): Binder[F2[G, Z, ?] |: Base] = new Binder[F2[G, Z, ?] |: Base] {
-      def bind[A, B](fa: F2[G, Z, A])(f: A => F2[G, Z, B]): F2[G, Z, B] = F.bind(fa)(f)
+    implicit def headH2[F[_[_], _, _], F2[_[_], _, _], G[_], Z](implicit ev: PermuteH2[F, F2], F: FlatMap[F2[G, Z, ?]]): Binder[F2[G, Z, ?] |: Base] = new Binder[F2[G, Z, ?] |: Base] {
+      def bind[A, B](fa: F2[G, Z, A])(f: A => F2[G, Z, B]): F2[G, Z, B] = F.flatMap(fa)(f)
     }
 
-    implicit def headH3[F[_[_], _, _, _], F2[_[_], _, _, _], G[_], Y, Z](implicit ev: PermuteH3[F, F2], F: Bind[F2[G, Y, Z, ?]]): Binder[F2[G, Y, Z, ?] |: Base] = new Binder[F2[G, Y, Z, ?] |: Base] {
-      def bind[A, B](fa: F2[G, Y, Z, A])(f: A => F2[G, Y, Z, B]): F2[G, Y, Z, B] = F.bind(fa)(f)
+    implicit def headH3[F[_[_], _, _, _], F2[_[_], _, _, _], G[_], Y, Z](implicit ev: PermuteH3[F, F2], F: FlatMap[F2[G, Y, Z, ?]]): Binder[F2[G, Y, Z, ?] |: Base] = new Binder[F2[G, Y, Z, ?] |: Base] {
+      def bind[A, B](fa: F2[G, Y, Z, A])(f: A => F2[G, Y, Z, B]): F2[G, Y, Z, B] = F.flatMap(fa)(f)
     }
 
-    implicit def corecurse1[F[_], C <: Effects](implicit C: Binder[C], T: Traverser[C], F: Applicative[F], B: Bind[F]): Binder[F |: C] = new Binder[F |: C] {
+    implicit def corecurse1[F[_], C <: Effects](implicit C: Binder[C], T: Traverser[C], F: Applicative[F], B: FlatMap[F]): Binder[F |: C] = new Binder[F |: C] {
 
       def bind[A, B](fca: F[C#Point[A]])(f: A => F[C#Point[B]]): F[C#Point[B]] = {
-        B.bind(fca) { ca =>
+        B.flatMap(fca) { ca =>
           val fcaca = T.traverse(ca) { a => f(a) }
 
           F.map(fcaca) { caca => C.bind(caca) { a => a } }
@@ -355,10 +442,10 @@ object Effects {
       }
     }
 
-    implicit def corecurse2[F[_, _], F2[_, _], Z, C <: Effects](implicit ev: Permute2[F, F2], C: Binder[C], T: Traverser[C], F: Applicative[F2[Z, ?]], B: Bind[F2[Z, ?]]): Binder[F2[Z, ?] |: C] = new Binder[F2[Z, ?] |: C] {
+    implicit def corecurse2[F[_, _], F2[_, _], Z, C <: Effects](implicit ev: Permute2[F, F2], C: Binder[C], T: Traverser[C], F: Applicative[F2[Z, ?]], B: FlatMap[F2[Z, ?]]): Binder[F2[Z, ?] |: C] = new Binder[F2[Z, ?] |: C] {
 
       def bind[A, B](fca: F2[Z, C#Point[A]])(f: A => F2[Z, C#Point[B]]): F2[Z, C#Point[B]] = {
-        B.bind(fca) { ca =>
+        B.flatMap(fca) { ca =>
           val fcaca = T.traverse[F2[Z, ?], A, C#Point[B]](ca) { a => f(a) }
 
           F.map(fcaca) { caca => C.bind(caca) { a => a } }
@@ -366,10 +453,10 @@ object Effects {
       }
     }
 
-    implicit def corecurse3[F[_, _, _], F2[_, _, _], Y, Z, C <: Effects](implicit ev: Permute3[F, F2], C: Binder[C], T: Traverser[C], F: Applicative[F2[Y, Z, ?]], B: Bind[F2[Y, Z, ?]]): Binder[F2[Y, Z, ?] |: C] = new Binder[F2[Y, Z, ?] |: C] {
+    implicit def corecurse3[F[_, _, _], F2[_, _, _], Y, Z, C <: Effects](implicit ev: Permute3[F, F2], C: Binder[C], T: Traverser[C], F: Applicative[F2[Y, Z, ?]], B: FlatMap[F2[Y, Z, ?]]): Binder[F2[Y, Z, ?] |: C] = new Binder[F2[Y, Z, ?] |: C] {
 
       def bind[A, B](fca: F2[Y, Z, C#Point[A]])(f: A => F2[Y, Z, C#Point[B]]): F2[Y, Z, C#Point[B]] = {
-        B.bind(fca) { ca =>
+        B.flatMap(fca) { ca =>
           val fcaca = T.traverse[F2[Y, Z, ?], A, C#Point[B]](ca) { a => f(a) }
 
           F.map(fcaca) { caca => C.bind(caca) { a => a } }
@@ -377,10 +464,10 @@ object Effects {
       }
     }
 
-    implicit def corecurseH1[F[_[_], _], G[_], C <: Effects](implicit C: Binder[C], T: Traverser[C], F: Applicative[F[G, ?]], B: Bind[F[G, ?]]): Binder[F[G, ?] |: C] = new Binder[F[G, ?] |: C] {
+    implicit def corecurseH1[F[_[_], _], G[_], C <: Effects](implicit C: Binder[C], T: Traverser[C], F: Applicative[F[G, ?]], B: FlatMap[F[G, ?]]): Binder[F[G, ?] |: C] = new Binder[F[G, ?] |: C] {
 
       def bind[A, B](fca: F[G, C#Point[A]])(f: A => F[G, C#Point[B]]): F[G, C#Point[B]] = {
-        B.bind(fca) { ca =>
+        B.flatMap(fca) { ca =>
           val fcaca = T.traverse[F[G, ?], A, C#Point[B]](ca) { a => f(a) }
 
           F.map(fcaca) { caca => C.bind(caca) { a => a } }
@@ -388,10 +475,10 @@ object Effects {
       }
     }
 
-    implicit def corecurseH2[F[_[_], _, _], F2[_[_], _, _], G[_], Z, C <: Effects](implicit ev: PermuteH2[F, F2], C: Binder[C], T: Traverser[C], F: Applicative[F2[G, Z, ?]], B: Bind[F2[G, Z, ?]]): Binder[F2[G, Z, ?] |: C] = new Binder[F2[G, Z, ?] |: C] {
+    implicit def corecurseH2[F[_[_], _, _], F2[_[_], _, _], G[_], Z, C <: Effects](implicit ev: PermuteH2[F, F2], C: Binder[C], T: Traverser[C], F: Applicative[F2[G, Z, ?]], B: FlatMap[F2[G, Z, ?]]): Binder[F2[G, Z, ?] |: C] = new Binder[F2[G, Z, ?] |: C] {
 
       def bind[A, B](fca: F2[G, Z, C#Point[A]])(f: A => F2[G, Z, C#Point[B]]): F2[G, Z, C#Point[B]] = {
-        B.bind(fca) { ca =>
+        B.flatMap(fca) { ca =>
           val fcaca = T.traverse[F2[G, Z, ?], A, C#Point[B]](ca) { a => f(a) }
 
           F.map(fcaca) { caca => C.bind(caca) { a => a } }
@@ -399,10 +486,10 @@ object Effects {
       }
     }
 
-    implicit def corecurseH3[F[_[_], _, _, _], F2[_[_], _, _, _], G[_], Y, Z, C <: Effects](implicit ev: PermuteH3[F, F2], C: Binder[C], T: Traverser[C], F: Applicative[F2[G, Y, Z, ?]], B: Bind[F2[G, Y, Z, ?]]): Binder[F2[G, Y, Z, ?] |: C] = new Binder[F2[G, Y, Z, ?] |: C] {
+    implicit def corecurseH3[F[_[_], _, _, _], F2[_[_], _, _, _], G[_], Y, Z, C <: Effects](implicit ev: PermuteH3[F, F2], C: Binder[C], T: Traverser[C], F: Applicative[F2[G, Y, Z, ?]], B: FlatMap[F2[G, Y, Z, ?]]): Binder[F2[G, Y, Z, ?] |: C] = new Binder[F2[G, Y, Z, ?] |: C] {
 
       def bind[A, B](fca: F2[G, Y, Z, C#Point[A]])(f: A => F2[G, Y, Z, C#Point[B]]): F2[G, Y, Z, C#Point[B]] = {
-        B.bind(fca) { ca =>
+        B.flatMap(fca) { ca =>
           val fcaca = T.traverse[F2[G, Y, Z, ?], A, C#Point[B]](ca) { a => f(a) }
 
           F.map(fcaca) { caca => C.bind(caca) { a => a } }
@@ -419,7 +506,7 @@ object Effects {
   }
 
   trait ExpanderLowPriorityImplicits {
-    import scalaz.State
+    import cats.state.State
 
     implicit def headState[S]: Expander.Aux[State[S, ?] |: Base, State[S, ?], Base] = new Expander[State[S, ?] |: Base] {
       type CC[A] = State[S, A]
@@ -539,7 +626,7 @@ object Effects {
   }
 
   trait CollapserLowPriorityImplicits1 {
-    import scalaz.State
+    import cats.state.State
 
     implicit def headState[S, A0]: Collapser.Aux[State[S, A0], Base, A0, State[S, ?] |: Base] = new Collapser[State[S, A0], Base] {
       type A = A0
@@ -669,7 +756,7 @@ object Effects {
   }
 
   trait LifterLowPriorityImplicits {
-    import scalaz.State
+    import cats.state.State
 
     implicit def headState[S, A]: Lifter.Aux[State[S, A], State[S, ?] |: Base, A] = new Lifter[State[S, A], State[S, ?] |: Base] {
       type Out = A
@@ -686,7 +773,7 @@ object Effects {
     implicit def corecurseState[S, E, C <: Effects](implicit L: Lifter[E, C]): Lifter.Aux[E, State[S, ?] |: C, L.Out] = new Lifter[E, State[S, ?] |: C] {
       type Out = L.Out
 
-      def apply(e: E) = State.state(L(e))
+      def apply(e: E) = State.pure(L(e))
     }
   }
 
@@ -768,37 +855,37 @@ object Effects {
     implicit def corecurse1[F[_], E, C <: Effects](implicit L: Lifter[E, C], F: Applicative[F]): Lifter.Aux[E, F |: C, L.Out] = new Lifter[E, F |: C] {
       type Out = L.Out
 
-      def apply(e: E) = F.point(L(e))
+      def apply(e: E) = F.pure(L(e))
     }
 
     implicit def corecurse2[F[_, _], F2[_, _], Z, E, C <: Effects](implicit ev: Permute2[F, F2], L: Lifter[E, C], F: Applicative[F2[Z, ?]]): Lifter.Aux[E, F2[Z, ?] |: C, L.Out] = new Lifter[E, F2[Z, ?] |: C] {
       type Out = L.Out
 
-      def apply(e: E) = F.point(L(e))
+      def apply(e: E) = F.pure(L(e))
     }
 
     implicit def corecurse3[F[_, _, _], F2[_, _, _], Y, Z, E, C <: Effects](implicit ev: Permute3[F, F2], L: Lifter[E, C], F: Applicative[F2[Y, Z, ?]]): Lifter.Aux[E, F2[Y, Z, ?] |: C, L.Out] = new Lifter[E, F2[Y, Z, ?] |: C] {
       type Out = L.Out
 
-      def apply(e: E) = F.point(L(e))
+      def apply(e: E) = F.pure(L(e))
     }
 
     implicit def corecurseH1[F[_[_], _], G[_], E, C <: Effects](implicit L: Lifter[E, C], F: Applicative[F[G, ?]]): Lifter.Aux[E, F[G, ?] |: C, L.Out] = new Lifter[E, F[G, ?] |: C] {
       type Out = L.Out
 
-      def apply(e: E) = F.point(L(e))
+      def apply(e: E) = F.pure(L(e))
     }
 
     implicit def corecurseH2[F[_[_], _, _], F2[_[_], _, _], G[_], Z, E, C <: Effects](implicit ev: PermuteH2[F, F2], L: Lifter[E, C], F: Applicative[F2[G, Z, ?]]): Lifter.Aux[E, F2[G, Z, ?] |: C, L.Out] = new Lifter[E, F2[G, Z, ?] |: C] {
       type Out = L.Out
 
-      def apply(e: E) = F.point(L(e))
+      def apply(e: E) = F.pure(L(e))
     }
 
     implicit def corecurseH3[F[_[_], _, _, _], F2[_[_], _, _, _], G[_], Y, Z, E, C <: Effects](implicit ev: PermuteH3[F, F2], L: Lifter[E, C], F: Applicative[F2[G, Y, Z, ?]]): Lifter.Aux[E, F2[G, Y, Z, ?] |: C, L.Out] = new Lifter[E, F2[G, Y, Z, ?] |: C] {
       type Out = L.Out
 
-      def apply(e: E) = F.point(L(e))
+      def apply(e: E) = F.pure(L(e))
     }
   }
 
@@ -810,7 +897,7 @@ object Effects {
   }
 
   trait WrapperLowPriorityImplicits1 {
-    import scalaz.State
+    import cats.state.State
 
     implicit def head[A0]: Wrapper.Aux[A0, Base, A0] = new Wrapper[A0, Base] {
       type A = A0
@@ -899,9 +986,9 @@ trait EmmLowPriorityImplicits1 {
 
   implicit def applicativeInstance[C <: Effects](implicit C: Mapper[C]): Applicative[Emm[C, ?]] = new Applicative[Emm[C, ?]] {
 
-    def point[A](a: => A): Emm[C, A] = new Emm(C.point(a))
+    def pure[A](a: A): Emm[C, A] = new Emm(C.point(a))
 
-    def ap[A, B](fa: => Emm[C, A])(f: => Emm[C, A => B]): Emm[C, B] = new Emm(C.ap(fa.run)(f.run))
+    def ap[A, B](fa: Emm[C, A])(f: Emm[C, A => B]): Emm[C, B] = new Emm(C.ap(fa.run)(f.run))
   }
 }
 
@@ -910,9 +997,9 @@ trait EmmLowPriorityImplicits2 extends EmmLowPriorityImplicits1 {
 
   implicit def monadInstance[C <: Effects : Mapper : Binder]: Monad[Emm[C, ?]] = new Monad[Emm[C, ?]] {
 
-    def point[A](a: => A): Emm[C, A] = new Emm(implicitly[Mapper[C]].point(a))
+    def pure[A](a: A): Emm[C, A] = new Emm(implicitly[Mapper[C]].point(a))
 
-    def bind[A, B](fa: Emm[C, A])(f: A => Emm[C, B]): Emm[C, B] = fa flatMap f
+    def flatMap[A, B](fa: Emm[C, A])(f: A => Emm[C, B]): Emm[C, B] = fa flatMap f
   }
 }
 
@@ -920,7 +1007,12 @@ object Emm extends EmmLowPriorityImplicits2 {
   import Effects._
 
   implicit def traverseInstance[C <: Effects](implicit C: Traverser[C]): Traverse[Emm[C, ?]] = new Traverse[Emm[C, ?]] {
-    def traverseImpl[G[_]: Applicative, A, B](fa: Emm[C, A])(f: A => G[B]): G[Emm[C, B]] =
+    def traverse[G[_]: Applicative, A, B](fa: Emm[C, A])(f: A => G[B]): G[Emm[C, B]] =
       Applicative[G].map(C.traverse(fa.run)(f)) { new Emm(_) }
+
+    def foldLeft[A, B](fa: Emm[C, A], b: B)(f: (B, A) => B): B = C.foldLeft(fa.run, b)(f)
+
+    def foldRight[A, B](fa: Emm[C, A], lb: Eval[B])(f: (A, Eval[B]) => Eval[B]): Eval[B] = C.foldRight(fa.run, lb)(f)
+
   }
 }

@@ -2,9 +2,9 @@ package emm
 
 import org.specs2.mutable._
 
-import scalaz.std.list._
-import scalaz.std.option._
-import scalaz.std.scalaFuture._
+import cats.std.list._
+import cats.std.option._
+import cats.std.future._
 
 import scala.concurrent.{Await, Future}
 import scala.concurrent.duration._
