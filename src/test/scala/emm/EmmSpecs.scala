@@ -203,7 +203,7 @@ object EmmSpecs extends Specification {
 
       "inner" >> {
         type E = Option |: Free[List, ?] |: Base
-        implicitly[Effects.Traverser[Free[List, ?] |: Base]]
+
         (42.pointM[E] flatMap { _ => "foo".pointM[E] } run) must beLike {
           case Some(f) => f.runM(identity) mustEqual List("foo")
         }
