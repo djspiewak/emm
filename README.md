@@ -130,10 +130,10 @@ These methods are exposed via implicit classes contained within the `emm` packag
 
 ## Requirements
 
-Right now, this is sitting on top of the scalaz 7.1 typeclass hierarchy, but it could be adapted to cats (or any other hierarchy) almost trivially.  Everything is implemented in terms of the following type classes (with minimal constraints for every function):
+Right now, this is sitting on top of the cats 0.3 typeclass hierarchy, but it could be adapted to scalaz (or any other hierarchy) almost trivially.  Everything is implemented in terms of the following type classes (with minimal constraints for every function):
 
 - `Applicative`
-- `Bind`
+- `FlatMap`
 - `Functor`
 - `Traverse`
 
