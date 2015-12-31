@@ -24,8 +24,6 @@ object Effects {
     def point[A](a: A): C#Point[A]
 
     def map[A, B](fa: C#Point[A])(f: A => B): C#Point[B]
-
-    def ap[A, B](fa: C#Point[A])(f: C#Point[A => B]): C#Point[B]
   }
 
   trait MapperLowPriorityImplicits {
@@ -36,8 +34,6 @@ object Effects {
       def point[A](a: A) = State.pure(a)
 
       def map[A, B](fa: State[S, A])(f: A => B): State[S, B] = fa map f
-
-      def ap[A, B](fa: State[S, A])(f: State[S, A => B]): State[S, B] = f flatMap (fa map)
     }
 
     implicit def corecurseState[S, C <: Effects](implicit P: Mapper[C]): Mapper[State[S, ?] |: C] = new Mapper[State[S, ?] |: C] {
@@ -45,14 +41,6 @@ object Effects {
       def point[A](a: A) = State.pure(P.point(a))
 
       def map[A, B](fa: State[S, C#Point[A]])(f: A => B): State[S, C#Point[B]] = fa map { a => P.map(a)(f) }
-
-      def ap[A, B](fa: State[S, C#Point[A]])(f: State[S, C#Point[A => B]]): State[S, C#Point[B]] = {
-        f flatMap { t =>
-          fa map { a =>
-            P.ap(a)(t)
-          }
-        }
-      }
     }
   }
 
@@ -63,8 +51,6 @@ object Effects {
       def point[A](a: A) = F.pure(a)
 
       def map[A, B](fa: F[A])(f: A => B): F[B] = F.map(fa)(f)
-
-      def ap[A, B](fa: F[A])(f: F[A => B]): F[B] = F.ap(fa)(f)
     }
 
     implicit def head2[F[_, _], F2[_, _], Z](implicit ev: Permute2[F, F2], F: Applicative[F2[Z, ?]]): Mapper[F2[Z, ?] |: Base] = new Mapper[F2[Z, ?] |: Base] {
@@ -72,8 +58,6 @@ object Effects {
       def point[A](a: A) = F.pure(a)
 
       def map[A, B](fa: F2[Z, A])(f: A => B) = F.map(fa)(f)
-
-      def ap[A, B](fa: F2[Z, A])(f: F2[Z, A => B]) = F.ap(fa)(f)
     }
 
     implicit def head3[F[_, _, _], F2[_, _, _], Y, Z](implicit ev: Permute3[F, F2], F: Applicative[F2[Y, Z, ?]]): Mapper[F2[Y, Z, ?] |: Base] = new Mapper[F2[Y, Z, ?] |: Base] {
@@ -81,8 +65,6 @@ object Effects {
       def point[A](a: A) = F.pure(a)
 
       def map[A, B](fa: F2[Y, Z, A])(f: A => B) = F.map(fa)(f)
-
-      def ap[A, B](fa: F2[Y, Z, A])(f: F2[Y, Z, A => B]) = F.ap(fa)(f)
     }
 
     implicit def headH1[F[_[_], _], G[_]](implicit F: Applicative[F[G, ?]]): Mapper[F[G, ?] |: Base] = new Mapper[F[G, ?] |: Base] {
@@ -90,8 +72,6 @@ object Effects {
       def point[A](a: A) = F.pure(a)
 
       def map[A, B](fa: F[G, A])(f: A => B): F[G, B] = F.map(fa)(f)
-
-      def ap[A, B](fa: F[G, A])(f: F[G, A => B]): F[G, B] = F.ap(fa)(f)
     }
 
     implicit def headH2[F[_[_], _, _], F2[_[_], _, _], G[_], Z](implicit ev: PermuteH2[F, F2], F: Applicative[F2[G, Z, ?]]): Mapper[F2[G, Z, ?] |: Base] = new Mapper[F2[G, Z, ?] |: Base] {
@@ -99,8 +79,6 @@ object Effects {
       def point[A](a: A) = F.pure(a)
 
       def map[A, B](fa: F2[G, Z, A])(f: A => B): F2[G, Z, B] = F.map(fa)(f)
-
-      def ap[A, B](fa: F2[G, Z, A])(f: F2[G, Z, A => B]): F2[G, Z, B] = F.ap(fa)(f)
     }
 
     implicit def headH3[F[_[_], _, _, _], F2[_[_], _, _, _], G[_], Y, Z](implicit ev: PermuteH3[F, F2], F: Applicative[F2[G, Y, Z, ?]]): Mapper[F2[G, Y, Z, ?] |: Base] = new Mapper[F2[G, Y, Z, ?] |: Base] {
@@ -108,8 +86,6 @@ object Effects {
       def point[A](a: A) = F.pure(a)
 
       def map[A, B](fa: F2[G, Y, Z, A])(f: A => B): F2[G, Y, Z, B] = F.map(fa)(f)
-
-      def ap[A, B](fa: F2[G, Y, Z, A])(f: F2[G, Y, Z, A => B]): F2[G, Y, Z, B] = F.ap(fa)(f)
     }
 
     implicit def corecurse1[F[_], C <: Effects](implicit P: Mapper[C], F: Applicative[F]): Mapper[F |: C] = new Mapper[F |: C] {
@@ -118,14 +94,6 @@ object Effects {
 
       def map[A, B](fa: F[C#Point[A]])(f: A => B): F[C#Point[B]] =
         F.map(fa) { ca => P.map(ca)(f) }
-
-      def ap[A, B](fa: F[C#Point[A]])(f: F[C#Point[A => B]]): F[C#Point[B]] = {
-        val f2 = F.map(f) { cf =>
-          { ca: C#Point[A] => P.ap(ca)(cf) }
-        }
-
-        F.ap(fa)(f2)
-      }
     }
 
     implicit def corecurse2[F[_, _], F2[_, _], Z, C <: Effects](implicit ev: Permute2[F, F2], P: Mapper[C], F: Applicative[F2[Z, ?]]): Mapper[F2[Z, ?] |: C] = new Mapper[F2[Z, ?] |: C] {
@@ -134,14 +102,6 @@ object Effects {
 
       def map[A, B](fa: F2[Z, C#Point[A]])(f: A => B): F2[Z, C#Point[B]] =
         F.map(fa) { ca => P.map(ca)(f) }
-
-      def ap[A, B](fa: F2[Z, C#Point[A]])(f: F2[Z, C#Point[A => B]]): F2[Z, C#Point[B]] = {
-        val f2 = F.map(f) { cf =>
-          { ca: C#Point[A] => P.ap(ca)(cf) }
-        }
-
-        F.ap(fa)(f2)
-      }
     }
 
     implicit def corecurse3[F[_, _, _], F2[_, _, _], Y, Z, C <: Effects](implicit ev: Permute3[F, F2], P: Mapper[C], F: Applicative[F2[Y, Z, ?]]): Mapper[F2[Y, Z, ?] |: C] = new Mapper[F2[Y, Z, ?] |: C] {
@@ -150,14 +110,6 @@ object Effects {
 
       def map[A, B](fa: F2[Y, Z, C#Point[A]])(f: A => B): F2[Y, Z, C#Point[B]] =
         F.map(fa) { ca => P.map(ca)(f) }
-
-      def ap[A, B](fa: F2[Y, Z, C#Point[A]])(f: F2[Y, Z, C#Point[A => B]]): F2[Y, Z, C#Point[B]] = {
-        val f2 = F.map(f) { cf =>
-          { ca: C#Point[A] => P.ap(ca)(cf) }
-        }
-
-        F.ap(fa)(f2)
-      }
     }
 
     implicit def corecurseH1[F[_[_], _], G[_], C <: Effects](implicit P: Mapper[C], F: Applicative[F[G, ?]]): Mapper[F[G, ?] |: C] = new Mapper[F[G, ?] |: C] {
@@ -166,14 +118,6 @@ object Effects {
 
       def map[A, B](fa: F[G, C#Point[A]])(f: A => B): F[G, C#Point[B]] =
         F.map(fa) { ca => P.map(ca)(f) }
-
-      def ap[A, B](fa: F[G, C#Point[A]])(f: F[G, C#Point[A => B]]): F[G, C#Point[B]] = {
-        val f2 = F.map(f) { cf =>
-          { ca: C#Point[A] => P.ap(ca)(cf) }
-        }
-
-        F.ap(fa)(f2)
-      }
     }
 
     implicit def corecurseH2[F[_[_], _, _], F2[_[_], _, _], G[_], Z, C <: Effects](implicit ev: PermuteH2[F, F2], P: Mapper[C], F: Applicative[F[G, Z, ?]]): Mapper[F[G, Z, ?] |: C] = new Mapper[F[G, Z, ?] |: C] {
@@ -182,14 +126,6 @@ object Effects {
 
       def map[A, B](fa: F[G, Z, C#Point[A]])(f: A => B): F[G, Z, C#Point[B]] =
         F.map(fa) { ca => P.map(ca)(f) }
-
-      def ap[A, B](fa: F[G, Z, C#Point[A]])(f: F[G, Z, C#Point[A => B]]): F[G, Z, C#Point[B]] = {
-        val f2 = F.map(f) { cf =>
-          { ca: C#Point[A] => P.ap(ca)(cf) }
-        }
-
-        F.ap(fa)(f2)
-      }
     }
 
     implicit def corecurseH3[F[_[_], _, _, _], F2[_[_], _, _, _], G[_], Y, Z, C <: Effects](implicit ev: PermuteH3[F, F2], P: Mapper[C], F: Applicative[F[G, Y, Z, ?]]): Mapper[F[G, Y, Z, ?] |: C] = new Mapper[F[G, Y, Z, ?] |: C] {
@@ -198,14 +134,6 @@ object Effects {
 
       def map[A, B](fa: F[G, Y, Z, C#Point[A]])(f: A => B): F[G, Y, Z, C#Point[B]] =
         F.map(fa) { ca => P.map(ca)(f) }
-
-      def ap[A, B](fa: F[G, Y, Z, C#Point[A]])(f: F[G, Y, Z, C#Point[A => B]]): F[G, Y, Z, C#Point[B]] = {
-        val f2 = F.map(f) { cf =>
-          { ca: C#Point[A] => P.ap(ca)(cf) }
-        }
-
-        F.ap(fa)(f2)
-      }
     }
   }
 
@@ -984,11 +912,9 @@ final case class Emm[C <: Effects, A](run: C#Point[A]) {
 trait EmmLowPriorityImplicits1 {
   import Effects._
 
-  implicit def applicativeInstance[C <: Effects](implicit C: Mapper[C]): Applicative[Emm[C, ?]] = new Applicative[Emm[C, ?]] {
+  implicit def functorInstance[C <: Effects](implicit C: Mapper[C]): Functor[Emm[C, ?]] = new Functor[Emm[C, ?]] {
 
-    def pure[A](a: A): Emm[C, A] = new Emm(C.point(a))
-
-    def ap[A, B](fa: Emm[C, A])(f: Emm[C, A => B]): Emm[C, B] = new Emm(C.ap(fa.run)(f.run))
+    def map[A, B](fa: Emm[C, A])(f: A => B): Emm[C, B] = new Emm(C.map(fa.run)(f))
   }
 }
 
