@@ -6,6 +6,8 @@ organization := "com.codecommit"
 
 name := "emm"
 
+licenses += ("Apache-2.0", url("http://www.apache.org/licenses/"))
+
 scalaVersion := "2.11.7"
 
 crossScalaVersions := Seq(scalaVersion.value, "2.10.6")
