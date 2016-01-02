@@ -11,6 +11,18 @@ The `Emm` monad provides a syntactically lightweight, type-inference friendly da
 
 These goals are very similar to those which motivated [Oleg's `Eff`](http://okmij.org/ftp/Haskell/extensible/), which is a really terrific data structure.  There are some significant differences though.  Most notably, `Eff` requires effect implementations to be rewritten to be compatible with its internal calculus, and so it does not allow the composition of arbitrary "standalone" monads written in a conventional style.  However, `Eff` is able to provide much greater expressive power than `Emm` (or monad transformers) in several key diminsions.  Oleg goes into significant detail on the expressiveness gains of `Eff` in his paper describing the construct.  `Emm` does not provide the same benefits.
 
+## SBT Setup
+
+As `Emm` is currently in rapid iteration and design, we are only releasing snapshots on an ad hoc basis to Bintray.  If you want to use `Emm` in your project, adding the following SBT configuration will do the trick:
+
+```sbt
+resolvers += "bintray-djspiewak-maven" at "https://dl.bintray.com/djspiewak/maven"
+
+libraryDependencies += "com.codecommit" %% "emm" % "0.1-c65281a"
+```
+
+Not all git hashes are published, but some are.  When in doubt, try a few.  Or just ask for one to be published.  All artifacts are signed with public key fingerprint [2BAE 5960](https://keybase.io/djspiewak).
+
 ## Example
 
 ```scala
