@@ -435,6 +435,75 @@ object Effects {
         }
       }
     }
+
+    implicit def pivot1[Pivot[_[_], _], C <: Effects, F <: Effects, T <: Effects](implicit NAP: NestedAtPoint[C, Pivot, F, T], T: Traverser[T], Pivot: Traverse[Pivot[F#Point, ?]]): Traverser[C] = new Traverser[C] {
+
+      def traverse[G[_]: Applicative, A, B](fca: CC[A])(f: A => G[B]): G[CC[B]] = {
+        val back = Pivot.traverse(NAP.unpack(fca)) { ca =>
+          T.traverse(ca)(f)
+        }
+
+        Applicative[G].map(back) { fca2 => NAP.pack(fca2) }
+      }
+
+      def foldLeft[A, B](fca: CC[A], b: B)(f: (B, A) => B): B = {
+        Pivot.foldLeft(NAP.unpack(fca), b) { (b, ca) =>
+          T.foldLeft(ca, b)(f)
+        }
+      }
+
+      def foldRight[A, B](fca: CC[A], lb: Eval[B])(f: (A, Eval[B]) => Eval[B]): Eval[B] = {
+        Pivot.foldRight(NAP.unpack(fca), lb) { (ca, eb) =>
+          T.foldRight(ca, eb)(f)
+        }
+      }
+    }
+
+    implicit def pivot2[Pivot[_[_], _, _], Pivot2[_[_], _, _], Z, C <: Effects, F <: Effects, T <: Effects](implicit ev: PermuteH2[Pivot, Pivot2], NAP: NestedAtPoint[C, Pivot2[?[_], Z, ?], F, T], T: Traverser[T], Pivot: Traverse[Pivot2[F#Point, Z, ?]]): Traverser[C] = new Traverser[C] {
+
+      def traverse[G[_]: Applicative, A, B](fca: CC[A])(f: A => G[B]): G[CC[B]] = {
+        val back = Pivot.traverse(NAP.unpack(fca)) { ca =>
+          T.traverse(ca)(f)
+        }
+
+        Applicative[G].map(back) { fca2 => NAP.pack(fca2) }
+      }
+
+      def foldLeft[A, B](fca: CC[A], b: B)(f: (B, A) => B): B = {
+        Pivot.foldLeft(NAP.unpack(fca), b) { (b, ca) =>
+          T.foldLeft(ca, b)(f)
+        }
+      }
+
+      def foldRight[A, B](fca: CC[A], lb: Eval[B])(f: (A, Eval[B]) => Eval[B]): Eval[B] = {
+        Pivot.foldRight(NAP.unpack(fca), lb) { (ca, eb) =>
+          T.foldRight(ca, eb)(f)
+        }
+      }
+    }
+
+    implicit def pivot3[Pivot[_[_], _, _, _], Pivot2[_[_], _, _, _], Y, Z, C <: Effects, F <: Effects, T <: Effects](implicit ev: PermuteH3[Pivot, Pivot2], NAP: NestedAtPoint[C, Pivot2[?[_], Y, Z, ?], F, T], T: Traverser[T], Pivot: Traverse[Pivot2[F#Point, Y, Z, ?]]): Traverser[C] = new Traverser[C] {
+
+      def traverse[G[_]: Applicative, A, B](fca: CC[A])(f: A => G[B]): G[CC[B]] = {
+        val back = Pivot.traverse(NAP.unpack(fca)) { ca =>
+          T.traverse(ca)(f)
+        }
+
+        Applicative[G].map(back) { fca2 => NAP.pack(fca2) }
+      }
+
+      def foldLeft[A, B](fca: CC[A], b: B)(f: (B, A) => B): B = {
+        Pivot.foldLeft(NAP.unpack(fca), b) { (b, ca) =>
+          T.foldLeft(ca, b)(f)
+        }
+      }
+
+      def foldRight[A, B](fca: CC[A], lb: Eval[B])(f: (A, Eval[B]) => Eval[B]): Eval[B] = {
+        Pivot.foldRight(NAP.unpack(fca), lb) { (ca, eb) =>
+          T.foldRight(ca, eb)(f)
+        }
+      }
+    }
   }
 
   @implicitNotFound("could not prove ${C} is a valid monadic stack; perhaps an effect is lacking a FlatMap, or a non-outer effect is lacking a Traverse")
