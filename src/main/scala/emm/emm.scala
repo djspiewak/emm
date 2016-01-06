@@ -4,22 +4,29 @@ import cats.{Applicative, FlatMap, Functor, Monad, Traverse, Eval}
 
 import scala.annotation.implicitNotFound
 
+// there's a bug in scalac's cyclic checking with open recursion and type constructors with arity > 1
+trait Partial {
+  type Apply[F[_]]
+}
+
 sealed trait Effects {
   type Point[A] = Build[λ[X => X], A]
 
-  type Build[CC[_], A]
+  type Build[CC[_], A] = Inner[A]#Apply[CC]
+
+  type Inner[A] <: Partial
 }
 
 sealed trait |:[F[_], T <: Effects] extends Effects {
-  type Build[CC[_], A] = T#Build[λ[X => CC[F[X]]], A]
+  type Inner[A] = Partial { type Apply[CC[_]] = T#Inner[A]#Apply[λ[X => CC[F[X]]]] }
 }
 
 sealed trait -|:[F[_[_], _], T <: Effects] extends Effects {
-  type Build[CC[_], A] = T#Build[λ[X => F[CC, X]], A]
+  type Inner[A] = Partial { type Apply[CC[_]] = F[CC, T#Inner[A]#Apply[λ[X => X]]] }
 }
 
 sealed trait Base extends Effects {
-  type Build[CC[_], A] = CC[A]
+  type Inner[A] = Partial { type Apply[F[_]] = F[A] }
 }
 
 object Properties {
@@ -905,24 +912,6 @@ object Effects {
 
     //  def apply(fa: A) = fa
     //}
-
-    implicit def headH1[F[_[_], _], G[_], A]: Lifter.Aux[F[G, A], F[G, ?] |: Base, A] = new Lifter[F[G, A], F[G, ?] |: Base] {
-      type Out = A
-
-      def apply(fa: F[G, A]) = fa
-    }
-
-    implicit def headH2[F[_[_], _, _], F2[_[_], _, _], G[_], Z, A](implicit ev: PermuteH2[F, F2]): Lifter.Aux[F2[G, Z, A], F2[G, Z, ?] |: Base, A] = new Lifter[F2[G, Z, A], F2[G, Z, ?] |: Base] {
-      type Out = A
-
-      def apply(fa: F2[G, Z, A]) = fa
-    }
-
-    implicit def headH3[F[_[_], _, _, _], F2[_[_], _, _, _], G[_], Y, Z, A](implicit ev: PermuteH3[F, F2]): Lifter.Aux[F2[G, Y, Z, A], F2[G, Y, Z, ?] |: Base, A] = new Lifter[F2[G, Y, Z, A], F2[G, Y, Z, ?] |: Base] {
-      type Out = A
-
-      def apply(fa: F2[G, Y, Z, A]) = fa
-    }
 
     implicit def mid1[F[_], A, C <: Effects](implicit C: Mapper[C], F: Functor[F], NN: NonNested[C]): Lifter.Aux[F[A], F |: C, A] = new Lifter[F[A], F |: C] {
       type Out = A

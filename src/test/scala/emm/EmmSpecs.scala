@@ -154,21 +154,32 @@ object EmmSpecs extends Specification {
       }
     }
 
-    "allow wrapping of two paired constructors where one is state" in {
-      "inner" >> {
-        type E = Option |: State[String, ?] |: Base
+    //"allow wrapping of two paired constructors where one is state" in {
+    //  "inner" >> {
+    //    type E = Option |: State[String, ?] |: Base
 
-        Option(State.pure[String, Int](42)).wrapM must haveType[Emm[Option |: State[String, ?] |: Base, Int]].attempt
-        Option(State.pure[String, Int](42)).wrapM[E] must haveType[Emm[Option |: State[String, ?] |: Base, Int]].attempt
-      }
+    //    import Effects._
 
-      "outer" >> {
-        type E = State[String, ?] |: Option |: Base
+    //    import cats.state.StateT
+    //    import cats.free.Trampoline
 
-        State.pure[String, Option[Int]](Option(42)).wrapM must haveType[Emm[State[String, ?] |: Option |: Base, Int]].attempt
-        State.pure[String, Option[Int]](Option(42)).wrapM[E] must haveType[Emm[State[String, ?] |: Option |: Base, Int]].attempt
-      }
-    }
+    //    val foo = implicitly[Wrapper[State[String, Int], State[String, ?] |: Base]](Wrapper.corecurseH2[StateT, StateT, Trampoline, String, State[String, Int], Base, Int])
+
+    //    Option(State.pure[String, Int](42)).wrapM must haveType[Emm[Option |: State[String, ?] |: Base, Int]].attempt
+    //    Option(State.pure[String, Int](42)).wrapM[E](foo) must haveType[Emm[Option |: State[String, ?] |: Base, Int]].attempt
+    //  }
+
+    //  "outer" >> {
+    //    type E = State[String, ?] |: Option |: Base
+
+
+    //    import Effects._
+    //    val foo = implicitly[Wrapper[State[String, Option[Int]], E]]
+
+    //    State.pure[String, Option[Int]](Option(42)).wrapM must haveType[Emm[State[String, ?] |: Option |: Base, Int]].attempt
+    //    State.pure[String, Option[Int]](Option(42)).wrapM[E](foo) must haveType[Emm[State[String, ?] |: Option |: Base, Int]].attempt
+    //  }
+    //}
 
     "allow mapping" in {
       val opt: Option[Int] = Some(42)
@@ -216,19 +227,19 @@ object EmmSpecs extends Specification {
       }
     }
 
-    "bind over a stack that contains state" in {
-      "empty" >> {
-        type E = State[String, ?] |: Base
+    //"bind over a stack that contains state" in {
+    //  "empty" >> {
+    //    type E = State[String, ?] |: Base
 
-        (42.pointM[E] flatMap { _ => "foo".pointM[E] }).run.runA("blah").run mustEqual "foo"
-      }
+    //    (42.pointM[E] flatMap { _ => "foo".pointM[E] }).run.runA("blah").run mustEqual "foo"
+    //  }
 
-      "outer" >> {
-        type E = State[String, ?] |: Option |: Base
+    //  "outer" >> {
+    //    type E = State[String, ?] |: Option |: Base
 
-        (42.pointM[E] flatMap { _ => "foo".pointM[E] }).run.runA("blah").run must beSome("foo")
-      }
-    }
+    //    (42.pointM[E] flatMap { _ => "foo".pointM[E] }).run.runA("blah").run must beSome("foo")
+    //  }
+    //}
 
     "enable flatMapM in any direction" in {
       type E = List |: Option |: Base
@@ -336,23 +347,23 @@ object EmmSpecs extends Specification {
       }
     }
 
-    "allow both expansion and collapse of base with state" in {
-      "inner" >> {
-        type E = Task |: State[String, ?] |: Base
+    //"allow both expansion and collapse of base with state" in {
+    //  "inner" >> {
+    //    type E = Task |: State[String, ?] |: Base
 
-        val e = (Task now 42).liftM[E].expand map { s => State.pure[String, Int](s.runA("blerg").run + 12) } collapse
+    //    val e = (Task now 42).liftM[E].expand map { s => State.pure[String, Int](s.runA("blerg").run + 12) } collapse
 
-        e.run.run.runA("boo").run mustEqual 54
-      }
+    //    e.run.run.runA("boo").run mustEqual 54
+    //  }
 
-      "outer" >> {
-        type E = State[String, ?] |: Task |: Base
+    //  "outer" >> {
+    //    type E = State[String, ?] |: Task |: Base
 
-        val e = (Task now 42).liftM[E].expand map { _.attempt } collapse
+    //    val e = (Task now 42).liftM[E].expand map { _.attempt } collapse
 
-        e.run.runA("boo").run.run mustEqual \/-(42)
-      }
-    }
+    //    e.run.runA("boo").run.run mustEqual \/-(42)
+    //  }
+    //}
 
     "allow both expansion and collapse of base with a higher-order arity-2 constructor" in {
       val toList = new (Option ~> List) {
