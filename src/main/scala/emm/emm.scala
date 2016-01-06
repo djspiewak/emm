@@ -5,139 +5,217 @@ import cats.{Applicative, FlatMap, Functor, Monad, Traverse, Eval}
 import scala.annotation.implicitNotFound
 
 sealed trait Effects {
-  type Point[A]
+  type Point[A] = Build[λ[X => X], A]
+
+  type Build[CC[_], A]
 }
 
 sealed trait |:[F[_], T <: Effects] extends Effects {
-  type Point[A] = F[T#Point[A]]
+  type Build[CC[_], A] = T#Build[λ[X => CC[F[X]]], A]
+}
+
+sealed trait -|:[F[_[_], _], T <: Effects] extends Effects {
+  type Build[CC[_], A] = T#Build[λ[X => F[CC, X]], A]
 }
 
 sealed trait Base extends Effects {
-  type Point[A] = A
+  type Build[CC[_], A] = CC[A]
+}
+
+object Properties {
+
+  /**
+   * The property of Effects which do not contain a -|: case
+   */
+  sealed trait NonNested[C <: Effects] {
+    def pack[CC[_], A](cc: CC[C#Point[A]]): C#Build[CC, A]
+    def unpack[CC[_], A](cc: C#Build[CC, A]): CC[C#Point[A]]
+  }
+
+  object NonNested {
+
+    // TODO other cases
+    implicit def head[F[_]]: NonNested[F |: Base] = new NonNested[F |: Base] {
+      def pack[CC[_], A](cc: CC[F[A]]) = cc
+      def unpack[CC[_], A](cc: CC[F[A]]) = cc
+    }
+
+    implicit def corecurse[F[_], C <: Effects](implicit C: NonNested[C]): NonNested[F |: C] = new NonNested[F |: C] {
+      def pack[CC[_], A](cc: CC[(F |: C)#Point[A]]) = cc.asInstanceOf[(F |: C)#Build[CC, A]]
+      def unpack[CC[_], A](cc: (F |: C)#Build[CC, A]) = cc.asInstanceOf[CC[(F |: C)#Point[A]]]
+    }
+  }
+
+  /**
+   * The property of Effects which contain at least one -|: case, partitioning into a front and tail, where the front
+   * is NonNested and the tail is unconstrained.
+   */
+  sealed trait NestedAtPoint[C <: Effects] {
+    type Nest[F[_], A]
+    type Front <: Effects
+    type Tail <: Effects
+
+    def apply[A](cc: Nest[Front#Point, Tail#Point[A]]): C#Point[A]
+  }
+
+  object NestedAtPoint {
+    type Aux[C <: Effects, Nest0[_[_], _], Front0 <: Effects, Tail0 <: Effects] = NestedAtPoint[C] { type Nest[F[_], A] = Nest0[F, A]; type Front = Front0; type Tail = Tail0 }
+
+    implicit def split[Nest0[_[_], _], C <: Effects]: NestedAtPoint.Aux[Nest0 -|: C, Nest0, Base, C] = new NestedAtPoint[Nest0 -|: C] {
+      type Nest[F[_], A] = Nest0[F, A]
+      type Front = Base
+      type Tail = C
+
+      def apply[A](cc: Nest[Base#Point, C#Point[A]]): (Nest0 -|: C)#Point[A] = cc.asInstanceOf[(Nest0 -|: C)#Point[A]]
+    }
+
+    implicit def corecurse[F[_], C <: Effects](implicit C: NestedAtPoint[C]): NestedAtPoint.Aux[F |: C, C.Nest, F |: C.Front, C.Tail] = new NestedAtPoint[F |: C] {
+      type Nest[F[_], A] = C.Nest[F, A]
+      type Front = F |: C.Front
+      type Tail = C.Tail
+
+      def apply[A](cc: Nest[Front#Point, Tail#Point[A]]) = cc.asInstanceOf[(F |: C)#Point[A]]
+    }
+  }
 }
 
 object Effects {
+  import Properties._
 
   @implicitNotFound("could not compute a method for mapping over effect stack ${C}; either a member of the stack lacks an Applicative, or its Applicative instance is ambiguous")
   trait Mapper[C <: Effects] {
-
     def point[A](a: A): C#Point[A]
-
     def map[A, B](fa: C#Point[A])(f: A => B): C#Point[B]
+  }
+
+  object Mapper {
+
+    implicit def nnmapper[C <: Effects](implicit C: NNMapper[C]): Mapper[C] = new Mapper[C] {
+      def point[A](a: A) = C.point(a)
+      def map[A, B](fa: C#Point[A])(f: A => B) = C.map(fa)(f)
+    }
+  }
+
+  trait NNMapper[C <: Effects] {
+    type CC[A] = C#Point[A]
+
+    def point[A](a: A): CC[A]
+
+    def map[A, B](fa: CC[A])(f: A => B): CC[B]
   }
 
   trait MapperLowPriorityImplicits {
     import cats.state.State
 
-    implicit def headState[S]: Mapper[State[S, ?] |: Base] = new Mapper[State[S, ?] |: Base] {
+    /*implicit def headState[S]: NNMapper[State[S, ?] |: Base] = new NNMapper[State[S, ?] |: Base] {
 
       def point[A](a: A) = State.pure(a)
 
       def map[A, B](fa: State[S, A])(f: A => B): State[S, B] = fa map f
     }
 
-    implicit def corecurseState[S, C <: Effects](implicit P: Mapper[C]): Mapper[State[S, ?] |: C] = new Mapper[State[S, ?] |: C] {
+    implicit def corecurseState[S, C <: Effects](implicit P: NNMapper[C]): NNMapper[State[S, ?] |: C] = new NNMapper[State[S, ?] |: C] {
 
       def point[A](a: A) = State.pure(P.point(a))
 
       def map[A, B](fa: State[S, C#Point[A]])(f: A => B): State[S, C#Point[B]] = fa map { a => P.map(a)(f) }
-    }
+    }*/
   }
 
-  object Mapper extends MapperLowPriorityImplicits {
+  object NNMapper extends MapperLowPriorityImplicits {
 
-    implicit def head1[F[_]](implicit F: Applicative[F]): Mapper[F |: Base] = new Mapper[F |: Base] {
+    implicit def head1[F[_]](implicit F: Applicative[F]): NNMapper[F |: Base] = new NNMapper[F |: Base] {
 
       def point[A](a: A) = F.pure(a)
 
       def map[A, B](fa: F[A])(f: A => B): F[B] = F.map(fa)(f)
     }
 
-    implicit def head2[F[_, _], F2[_, _], Z](implicit ev: Permute2[F, F2], F: Applicative[F2[Z, ?]]): Mapper[F2[Z, ?] |: Base] = new Mapper[F2[Z, ?] |: Base] {
+    implicit def head2[F[_, _], F2[_, _], Z](implicit ev: Permute2[F, F2], F: Applicative[F2[Z, ?]]): NNMapper[F2[Z, ?] |: Base] = new NNMapper[F2[Z, ?] |: Base] {
 
       def point[A](a: A) = F.pure(a)
 
       def map[A, B](fa: F2[Z, A])(f: A => B) = F.map(fa)(f)
     }
 
-    implicit def head3[F[_, _, _], F2[_, _, _], Y, Z](implicit ev: Permute3[F, F2], F: Applicative[F2[Y, Z, ?]]): Mapper[F2[Y, Z, ?] |: Base] = new Mapper[F2[Y, Z, ?] |: Base] {
+    implicit def head3[F[_, _, _], F2[_, _, _], Y, Z](implicit ev: Permute3[F, F2], F: Applicative[F2[Y, Z, ?]]): NNMapper[F2[Y, Z, ?] |: Base] = new NNMapper[F2[Y, Z, ?] |: Base] {
 
       def point[A](a: A) = F.pure(a)
 
       def map[A, B](fa: F2[Y, Z, A])(f: A => B) = F.map(fa)(f)
     }
 
-    implicit def headH1[F[_[_], _], G[_]](implicit F: Applicative[F[G, ?]]): Mapper[F[G, ?] |: Base] = new Mapper[F[G, ?] |: Base] {
+    implicit def headH1[F[_[_], _], G[_]](implicit F: Applicative[F[G, ?]]): NNMapper[F[G, ?] |: Base] = new NNMapper[F[G, ?] |: Base] {
 
       def point[A](a: A) = F.pure(a)
 
       def map[A, B](fa: F[G, A])(f: A => B): F[G, B] = F.map(fa)(f)
     }
 
-    implicit def headH2[F[_[_], _, _], F2[_[_], _, _], G[_], Z](implicit ev: PermuteH2[F, F2], F: Applicative[F2[G, Z, ?]]): Mapper[F2[G, Z, ?] |: Base] = new Mapper[F2[G, Z, ?] |: Base] {
+    implicit def headH2[F[_[_], _, _], F2[_[_], _, _], G[_], Z](implicit ev: PermuteH2[F, F2], F: Applicative[F2[G, Z, ?]]): NNMapper[F2[G, Z, ?] |: Base] = new NNMapper[F2[G, Z, ?] |: Base] {
 
       def point[A](a: A) = F.pure(a)
 
       def map[A, B](fa: F2[G, Z, A])(f: A => B): F2[G, Z, B] = F.map(fa)(f)
     }
 
-    implicit def headH3[F[_[_], _, _, _], F2[_[_], _, _, _], G[_], Y, Z](implicit ev: PermuteH3[F, F2], F: Applicative[F2[G, Y, Z, ?]]): Mapper[F2[G, Y, Z, ?] |: Base] = new Mapper[F2[G, Y, Z, ?] |: Base] {
+    implicit def headH3[F[_[_], _, _, _], F2[_[_], _, _, _], G[_], Y, Z](implicit ev: PermuteH3[F, F2], F: Applicative[F2[G, Y, Z, ?]]): NNMapper[F2[G, Y, Z, ?] |: Base] = new NNMapper[F2[G, Y, Z, ?] |: Base] {
 
       def point[A](a: A) = F.pure(a)
 
       def map[A, B](fa: F2[G, Y, Z, A])(f: A => B): F2[G, Y, Z, B] = F.map(fa)(f)
     }
 
-    implicit def corecurse1[F[_], C <: Effects](implicit P: Mapper[C], F: Applicative[F]): Mapper[F |: C] = new Mapper[F |: C] {
+    implicit def corecurse1[F[_], C <: Effects](implicit P: NNMapper[C], NN: NonNested[C], F: Applicative[F]): NNMapper[F |: C] = new NNMapper[F |: C] {
 
-      def point[A](a: A) = F.pure(P.point(a))
+      def point[A](a: A) = NN.pack(F.pure(P.point(a)))
 
-      def map[A, B](fa: F[C#Point[A]])(f: A => B): F[C#Point[B]] =
-        F.map(fa) { ca => P.map(ca)(f) }
+      def map[A, B](fa: CC[A])(f: A => B): CC[B] =
+        NN.pack(F.map(NN.unpack(fa)) { ca => P.map(ca)(f) })
     }
 
-    implicit def corecurse2[F[_, _], F2[_, _], Z, C <: Effects](implicit ev: Permute2[F, F2], P: Mapper[C], F: Applicative[F2[Z, ?]]): Mapper[F2[Z, ?] |: C] = new Mapper[F2[Z, ?] |: C] {
+    implicit def corecurse2[F[_, _], F2[_, _], Z, C <: Effects](implicit ev: Permute2[F, F2], P: NNMapper[C], NN: NonNested[C], F: Applicative[F2[Z, ?]]): NNMapper[F2[Z, ?] |: C] = new NNMapper[F2[Z, ?] |: C] {
 
-      def point[A](a: A) = F.pure(P.point(a))
+      def point[A](a: A) = NN.pack[F2[Z, ?], A](F.pure(P.point(a)))
 
-      def map[A, B](fa: F2[Z, C#Point[A]])(f: A => B): F2[Z, C#Point[B]] =
-        F.map(fa) { ca => P.map(ca)(f) }
+      def map[A, B](fa: CC[A])(f: A => B): CC[B] =
+        NN.pack[F2[Z, ?], B](F.map(NN.unpack[F2[Z, ?], A](fa)) { ca => P.map(ca)(f) })
     }
 
-    implicit def corecurse3[F[_, _, _], F2[_, _, _], Y, Z, C <: Effects](implicit ev: Permute3[F, F2], P: Mapper[C], F: Applicative[F2[Y, Z, ?]]): Mapper[F2[Y, Z, ?] |: C] = new Mapper[F2[Y, Z, ?] |: C] {
+    implicit def corecurse3[F[_, _, _], F2[_, _, _], Y, Z, C <: Effects](implicit ev: Permute3[F, F2], P: NNMapper[C], NN: NonNested[C], F: Applicative[F2[Y, Z, ?]]): NNMapper[F2[Y, Z, ?] |: C] = new NNMapper[F2[Y, Z, ?] |: C] {
 
-      def point[A](a: A) = F.pure(P.point(a))
+      def point[A](a: A) = NN.pack[F2[Y, Z, ?], A](F.pure(P.point(a)))
 
-      def map[A, B](fa: F2[Y, Z, C#Point[A]])(f: A => B): F2[Y, Z, C#Point[B]] =
-        F.map(fa) { ca => P.map(ca)(f) }
+      def map[A, B](fa: CC[A])(f: A => B): CC[B] =
+        NN.pack[F2[Y, Z, ?], B](F.map(NN.unpack[F2[Y, Z, ?], A](fa)) { ca => P.map(ca)(f) })
     }
 
-    implicit def corecurseH1[F[_[_], _], G[_], C <: Effects](implicit P: Mapper[C], F: Applicative[F[G, ?]]): Mapper[F[G, ?] |: C] = new Mapper[F[G, ?] |: C] {
+    implicit def corecurseH1[F[_[_], _], G[_], C <: Effects](implicit P: NNMapper[C], NN: NonNested[C], F: Applicative[F[G, ?]]): NNMapper[F[G, ?] |: C] = new NNMapper[F[G, ?] |: C] {
 
-      def point[A](a: A) = F.pure(P.point(a))
+      def point[A](a: A) = NN.pack[F[G, ?], A](F.pure(P.point(a)))
 
-      def map[A, B](fa: F[G, C#Point[A]])(f: A => B): F[G, C#Point[B]] =
-        F.map(fa) { ca => P.map(ca)(f) }
+      def map[A, B](fa: CC[A])(f: A => B): CC[B] =
+        NN.pack[F[G, ?], B](F.map(NN.unpack[F[G, ?], A](fa)) { ca => P.map(ca)(f) })
     }
 
-    implicit def corecurseH2[F[_[_], _, _], F2[_[_], _, _], G[_], Z, C <: Effects](implicit ev: PermuteH2[F, F2], P: Mapper[C], F: Applicative[F[G, Z, ?]]): Mapper[F[G, Z, ?] |: C] = new Mapper[F[G, Z, ?] |: C] {
+    implicit def corecurseH2[F[_[_], _, _], F2[_[_], _, _], G[_], Z, C <: Effects](implicit ev: PermuteH2[F, F2], P: NNMapper[C], NN: NonNested[C], F: Applicative[F2[G, Z, ?]]): NNMapper[F2[G, Z, ?] |: C] = new NNMapper[F2[G, Z, ?] |: C] {
 
-      def point[A](a: A) = F.pure(P.point(a))
+      def point[A](a: A) = NN.pack[F2[G, Z, ?], A](F.pure(P.point(a)))
 
-      def map[A, B](fa: F[G, Z, C#Point[A]])(f: A => B): F[G, Z, C#Point[B]] =
-        F.map(fa) { ca => P.map(ca)(f) }
+      def map[A, B](fa: CC[A])(f: A => B): CC[B] =
+        NN.pack[F2[G, Z, ?], B](F.map(NN.unpack[F2[G, Z, ?], A](fa)) { ca => P.map(ca)(f) })
     }
 
-    implicit def corecurseH3[F[_[_], _, _, _], F2[_[_], _, _, _], G[_], Y, Z, C <: Effects](implicit ev: PermuteH3[F, F2], P: Mapper[C], F: Applicative[F[G, Y, Z, ?]]): Mapper[F[G, Y, Z, ?] |: C] = new Mapper[F[G, Y, Z, ?] |: C] {
+    implicit def corecurseH3[F[_[_], _, _, _], F2[_[_], _, _, _], G[_], Y, Z, C <: Effects](implicit ev: PermuteH3[F, F2], P: NNMapper[C], NN: NonNested[C], F: Applicative[F2[G, Y, Z, ?]]): NNMapper[F2[G, Y, Z, ?] |: C] = new NNMapper[F2[G, Y, Z, ?] |: C] {
 
-      def point[A](a: A) = F.pure(P.point(a))
+      def point[A](a: A) = NN.pack[F2[G, Y, Z, ?], A](F.pure(P.point(a)))
 
-      def map[A, B](fa: F[G, Y, Z, C#Point[A]])(f: A => B): F[G, Y, Z, C#Point[B]] =
-        F.map(fa) { ca => P.map(ca)(f) }
+      def map[A, B](fa: CC[A])(f: A => B): CC[B] =
+        NN.pack[F2[G, Y, Z, ?], B](F.map(NN.unpack[F2[G, Y, Z, ?], A](fa)) { ca => P.map(ca)(f) })
     }
   }
 
-  trait Traverser[C <: Effects] {
+  /*trait Traverser[C <: Effects] {
     def traverse[G[_]: Applicative, A, B](ca: C#Point[A])(f: A => G[B]): G[C#Point[B]]
     def foldLeft[A, B](fa: C#Point[A], b: B)(f: (B, A) => B): B
     def foldRight[A, B](fa: C#Point[A], lb: Eval[B])(f: (A, Eval[B]) => Eval[B]): Eval[B]
@@ -692,7 +770,7 @@ object Effects {
       def apply(fa: State[S, A]) = fa
     }
 
-    implicit def midState[S, A, C <: Effects](implicit C: Mapper[C]): Lifter.Aux[State[S, A], State[S, ?] |: C, A] = new Lifter[State[S, A], State[S, ?] |: C] {
+    implicit def midState[S, A, C <: Effects](implicit C: NNMapper[C]): Lifter.Aux[State[S, A], State[S, ?] |: C, A] = new Lifter[State[S, A], State[S, ?] |: C] {
       type Out = A
 
       def apply(fa: State[S, A]) = fa map { a => C.point(a) }
@@ -744,37 +822,37 @@ object Effects {
       def apply(fa: F2[G, Y, Z, A]) = fa
     }
 
-    implicit def mid1[F[_], A, C <: Effects](implicit C: Mapper[C], F: Functor[F]): Lifter.Aux[F[A], F |: C, A] = new Lifter[F[A], F |: C] {
+    implicit def mid1[F[_], A, C <: Effects](implicit C: NNMapper[C], F: Functor[F]): Lifter.Aux[F[A], F |: C, A] = new Lifter[F[A], F |: C] {
       type Out = A
 
       def apply(fa: F[A]) = F.map(fa) { a => C.point(a) }
     }
 
-    implicit def mid2[F[_, _], F2[_, _], Z, A, C <: Effects](implicit ev: Permute2[F, F2], C: Mapper[C], F: Functor[F2[Z, ?]]): Lifter.Aux[F2[Z, A], F2[Z, ?] |: C, A] = new Lifter[F2[Z, A], F2[Z, ?] |: C] {
+    implicit def mid2[F[_, _], F2[_, _], Z, A, C <: Effects](implicit ev: Permute2[F, F2], C: NNMapper[C], F: Functor[F2[Z, ?]]): Lifter.Aux[F2[Z, A], F2[Z, ?] |: C, A] = new Lifter[F2[Z, A], F2[Z, ?] |: C] {
       type Out = A
 
       def apply(fa: F2[Z, A]) = F.map(fa) { a => C.point(a) }
     }
 
-    implicit def mid3[F[_, _, _], F2[_, _, _], Y, Z, A, C <: Effects](implicit ev: Permute3[F, F2], C: Mapper[C], F: Functor[F2[Y, Z, ?]]): Lifter.Aux[F2[Y, Z, A], F2[Y, Z, ?] |: C, A] = new Lifter[F2[Y, Z, A], F2[Y, Z, ?] |: C] {
+    implicit def mid3[F[_, _, _], F2[_, _, _], Y, Z, A, C <: Effects](implicit ev: Permute3[F, F2], C: NNMapper[C], F: Functor[F2[Y, Z, ?]]): Lifter.Aux[F2[Y, Z, A], F2[Y, Z, ?] |: C, A] = new Lifter[F2[Y, Z, A], F2[Y, Z, ?] |: C] {
       type Out = A
 
       def apply(fa: F2[Y, Z, A]) = F.map(fa) { a => C.point(a) }
     }
 
-    implicit def midH1[F[_[_], _], G[_], A, C <: Effects](implicit C: Mapper[C], F: Functor[F[G, ?]]): Lifter.Aux[F[G, A], F[G, ?] |: C, A] = new Lifter[F[G, A], F[G, ?] |: C] {
+    implicit def midH1[F[_[_], _], G[_], A, C <: Effects](implicit C: NNMapper[C], F: Functor[F[G, ?]]): Lifter.Aux[F[G, A], F[G, ?] |: C, A] = new Lifter[F[G, A], F[G, ?] |: C] {
       type Out = A
 
       def apply(fa: F[G, A]) = F.map(fa) { a => C.point(a) }
     }
 
-    implicit def midH2[F[_[_], _, _], F2[_[_], _, _], G[_], Z, A, C <: Effects](implicit ev: PermuteH2[F, F2], C: Mapper[C], F: Functor[F2[G, Z, ?]]): Lifter.Aux[F2[G, Z, A], F2[G, Z, ?] |: C, A] = new Lifter[F2[G, Z, A], F2[G, Z, ?] |: C] {
+    implicit def midH2[F[_[_], _, _], F2[_[_], _, _], G[_], Z, A, C <: Effects](implicit ev: PermuteH2[F, F2], C: NNMapper[C], F: Functor[F2[G, Z, ?]]): Lifter.Aux[F2[G, Z, A], F2[G, Z, ?] |: C, A] = new Lifter[F2[G, Z, A], F2[G, Z, ?] |: C] {
       type Out = A
 
       def apply(fa: F2[G, Z, A]) = F.map(fa) { a => C.point(a) }
     }
 
-    implicit def midH3[F[_[_], _, _, _], F2[_[_], _, _, _], G[_], Y, Z, A, C <: Effects](implicit ev: PermuteH3[F, F2], C: Mapper[C], F: Functor[F2[G, Y, Z, ?]]): Lifter.Aux[F2[G, Y, Z, A], F2[G, Y, Z, ?] |: C, A] = new Lifter[F2[G, Y, Z, A], F2[G, Y, Z, ?] |: C] {
+    implicit def midH3[F[_[_], _, _, _], F2[_[_], _, _, _], G[_], Y, Z, A, C <: Effects](implicit ev: PermuteH3[F, F2], C: NNMapper[C], F: Functor[F2[G, Y, Z, ?]]): Lifter.Aux[F2[G, Y, Z, A], F2[G, Y, Z, ?] |: C, A] = new Lifter[F2[G, Y, Z, A], F2[G, Y, Z, ?] |: C] {
       type Out = A
 
       def apply(fa: F2[G, Y, Z, A]) = F.map(fa) { a => C.point(a) }
@@ -889,16 +967,16 @@ object Effects {
       def apply(fe: F[G, E]): F[G, C#Point[A]] =
         fe.asInstanceOf[F[G, C#Point[A]]]      // already proven equivalent; actual evaluation requires a Functor
     }
-  }
+  }*/
 }
 
 
 final case class Emm[C <: Effects, A](run: C#Point[A]) {
   import Effects._
 
-  def map[B](f: A => B)(implicit C: Mapper[C]): Emm[C, B] = Emm(C.map(run)(f))
+  def map[B](f: A => B)(implicit C: NNMapper[C]): Emm[C, B] = Emm(C.map(run)(f))
 
-  def flatMap[B](f: A => Emm[C, B])(implicit B: Binder[C]): Emm[C, B] =
+/*  def flatMap[B](f: A => Emm[C, B])(implicit B: Binder[C]): Emm[C, B] =
     Emm(B.bind(run) { a => f(a).run })
 
   def flatMapM[E](f: A => E)(implicit E: Lifter[E, C], B: Binder[C]): Emm[C, E.Out] =
@@ -906,13 +984,13 @@ final case class Emm[C <: Effects, A](run: C#Point[A]) {
 
   def expand(implicit C: Expander[C]): Emm[C.Out, C.CC[A]] = Emm(C(run))
 
-  def collapse(implicit C: Collapser[A, C]): Emm[C.Out, C.A] = Emm(C(run))
+  def collapse(implicit C: Collapser[A, C]): Emm[C.Out, C.A] = Emm(C(run))*/
 }
 
-trait EmmLowPriorityImplicits1 {
+/*trait EmmLowPriorityImplicits1 {
   import Effects._
 
-  implicit def functorInstance[C <: Effects](implicit C: Mapper[C]): Functor[Emm[C, ?]] = new Functor[Emm[C, ?]] {
+  implicit def functorInstance[C <: Effects](implicit C: NNMapper[C]): Functor[Emm[C, ?]] = new Functor[Emm[C, ?]] {
 
     def map[A, B](fa: Emm[C, A])(f: A => B): Emm[C, B] = new Emm(C.map(fa.run)(f))
   }
@@ -921,9 +999,9 @@ trait EmmLowPriorityImplicits1 {
 trait EmmLowPriorityImplicits2 extends EmmLowPriorityImplicits1 {
   import Effects._
 
-  implicit def monadInstance[C <: Effects : Mapper : Binder]: Monad[Emm[C, ?]] = new Monad[Emm[C, ?]] {
+  implicit def monadInstance[C <: Effects : NNMapper : Binder]: Monad[Emm[C, ?]] = new Monad[Emm[C, ?]] {
 
-    def pure[A](a: A): Emm[C, A] = new Emm(implicitly[Mapper[C]].point(a))
+    def pure[A](a: A): Emm[C, A] = new Emm(implicitly[NNMapper[C]].point(a))
 
     def flatMap[A, B](fa: Emm[C, A])(f: A => Emm[C, B]): Emm[C, B] = fa flatMap f
   }
@@ -941,4 +1019,4 @@ object Emm extends EmmLowPriorityImplicits2 {
     def foldRight[A, B](fa: Emm[C, A], lb: Eval[B])(f: (A, Eval[B]) => Eval[B]): Eval[B] = C.foldRight(fa.run, lb)(f)
 
   }
-}
+}*/
