@@ -17,20 +17,17 @@ trait Mapper[C <: Effects] {
 
 trait MapperLowPriorityImplicits {
   import cats.state.State
+  import cats.data.Kleisli
 
-  /*implicit def headState[S]: Mapper[State[S, ?] |: Base] = new Mapper[State[S, ?] |: Base] {
+  // we require a Binder[F] because we cannot derive a consistent Applicative from Mapper[F]
+  implicit def pivotKleisli[Z, C <: Effects, F <: Effects, T <: Effects](implicit NAP: NestedAtPoint[C, Kleisli[?[_], Z, ?], F, T], FB: Binder[F], FM: Mapper[F], T: Mapper[T]): Mapper[C] = new Mapper[C] {
+    import MapperBinder.monad
 
-    def point[A](a: A) = State.pure(a)
+    def point[A](a: A): CC[A] = NAP.pack(Kleisli.pure[F#Point, Z, T#Point[A]](T.point(a)))
 
-    def map[A, B](fa: State[S, A])(f: A => B): State[S, B] = fa map f
+    def map[A, B](fa: CC[A])(f: A => B): CC[B] =
+      NAP.pack(NAP.unpack(fa) map { ta => T.map(ta)(f) })
   }
-
-  implicit def corecurseState[S, C <: Effects](implicit P: Mapper[C]): Mapper[State[S, ?] |: C] = new Mapper[State[S, ?] |: C] {
-
-    def point[A](a: A) = State.pure(P.point(a))
-
-    def map[A, B](fa: State[S, C#Point[A]])(f: A => B): State[S, C#Point[B]] = fa map { a => P.map(a)(f) }
-  }*/
 }
 
 object Mapper extends MapperLowPriorityImplicits {

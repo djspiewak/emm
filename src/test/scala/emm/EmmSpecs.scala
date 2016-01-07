@@ -194,11 +194,11 @@ object EmmSpecs extends Specification {
       "foobar".pointM[E].map(_ + "baz").run.run(42) must beSome("foobarbaz")
     }
 
-    //"allow mapping over a List of Option of Kleisli" in {
-    //  type E = List |: Option |: Kleisli[?[_], Int, ?] -|: Base
+    "allow mapping over a List of Option of Kleisli" in {
+      type E = List |: Option |: Kleisli[?[_], Int, ?] -|: Base
 
-    //  "foobar".pointM[E].map(_ + "baz").run.run(42) mustEqual List(Some("foobarbaz"))
-    //}
+      "foobar".pointM[E].map(_ + "baz").run.run(42) mustEqual List(Some("foobarbaz"))
+    }
 
     "allow mapping over a Option of Kleisli of List" in {
       type E = Option |: Kleisli[?[_], Int, ?] -|: List |: Base
