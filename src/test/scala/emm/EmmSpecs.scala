@@ -223,6 +223,12 @@ object EmmSpecs extends Specification {
       "foobar".pointM[E].flatMap(x => (x + "baz").pointM[E]).run.run(42) mustEqual Some(List("foobarbaz"))
     }
 
+    "allow binding over a Option of List of Kleisli" in {
+      type E = Option |: List |: Kleisli[?[_], Int, ?] -|: Base
+
+      "foobar".pointM[E].flatMap(x => (x + "baz").pointM[E]).run.run(42) mustEqual Some(List("foobarbaz"))
+    }
+
     "bind over a stack that contains a partially-applied arity-2 constructor" in {
       type E = (String Xor ?) |: Base
 

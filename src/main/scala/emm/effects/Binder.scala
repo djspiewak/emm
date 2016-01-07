@@ -14,22 +14,21 @@ trait Binder[C <: Effects] {
 }
 
 trait BinderLowPriorityImplicits {
-  import cats.state.State
+  import cats.data.Kleisli
 
-  /*implicit def headState[S]: Binder[State[S, ?] |: Base] = new Binder[State[S, ?] |: Base] {
-    def bind[A, B](fa: State[S, A])(f: A => State[S, B]) = fa flatMap f
-  }
+  implicit def pivotKleisli[Z, C <: Effects, F <: Effects, T <: Effects](implicit NAP: NestedAtPoint[C, Kleisli[?[_], Z, ?], F, T], FB: Binder[F], FM: Mapper[F], TB: Binder[T], TT: Traverser[T]): Binder[C] = new Binder[C] {
+    import MapperBinder.monad
 
-  implicit def corecurseState[S, C <: Effects](implicit C: Binder[C], T: Traverser[C]): Binder[State[S, ?] |: C] = new Binder[State[S, ?] |: C] {
+    def bind[A, B](fca: CC[A])(f: A => CC[B]): CC[B] = {
+      val back = NAP.unpack(fca) flatMap { ca =>
+        val ptta = TT.traverse[Kleisli[F#Point, Z, ?], A, T#Point[B]](ca)({ a => NAP.unpack(f(a)) })(Kleisli.kleisliApplicative[F#Point, Z])
 
-    def bind[A, B](fa: State[S, C#Point[A]])(f: A => State[S, C#Point[B]]): State[S, C#Point[B]] = {
-      fa flatMap { ca =>
-        val scca = T.traverse[State[S, ?], A, C#Point[B]](ca) { a => f(a) }
-
-        scca map { cca => C.bind(cca) { a => a } }
+        ptta map { tta => TB.bind(tta) { a => a } }
       }
+
+      NAP.pack(back)
     }
-  }*/
+  }
 }
 
 object Binder extends BinderLowPriorityImplicits {
