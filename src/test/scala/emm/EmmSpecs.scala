@@ -33,7 +33,7 @@ object EmmSpecs extends Specification {
   implicit val taskFlatMap: Monad[Task] = new Monad[Task] {
     import scalaz.concurrent.Future
     def pure[A](x: A): Task[A] = new Task(Future.delay(Task.Try(x)))
-    
+
     def flatMap[A, B](fa: Task[A])(f: A => Task[B]): Task[B] = {
       fa.flatMap(f)
     }
@@ -198,7 +198,7 @@ object EmmSpecs extends Specification {
 
       import effects._
 
-      implicitly[Mapper[Kleisli[?[_], Int, ?] -|: Base]](Mapper.pivot2)
+      implicitly[Mapper[Option |: Kleisli[?[_], Int, ?] -|: Base]]
 
       ok
 
