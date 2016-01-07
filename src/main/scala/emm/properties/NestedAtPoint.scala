@@ -38,7 +38,6 @@ object NestedAtPoint {
     def unpack[A](cc: (Pivot2[?[_], Y, Z, ?] -|: C)#Point[A]): Pivot2[λ[X => X], Y, Z, C#Point[A]] = cc.asInstanceOf[Pivot2[λ[X => X], Y, Z, C#Point[A]]]
   }
 
-  // TODO do I have to multiply all of these cases by various Pivot permutations?  need to test (e.g. StateT)
   implicit def corecurseBar11[G[_], Pivot[_[_], _], C <: Effects, F <: Effects, T <: Effects](implicit C: NestedAtPoint[C, Pivot, F, T]): NestedAtPoint[G |: C, Pivot, G |: F, T] = new NestedAtPoint[G |: C, Pivot, G |: F, T] {
     def NN = C.NN
 
