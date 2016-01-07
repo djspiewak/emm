@@ -10,7 +10,6 @@ import scala.concurrent.{Await, Future}
 import scala.concurrent.duration._
 
 object FutureSpecs extends Specification {
-/*
   implicit val ec = scala.concurrent.ExecutionContext.global
 
   "emm with future" should {
@@ -25,5 +24,5 @@ object FutureSpecs extends Specification {
 
       Await.result(bam.run, 20 seconds) must beSome(List(6, 6))
     }
-  }*/
+  }
 }

@@ -40,7 +40,6 @@ object EmmSpecs extends Specification {
   }
 
   "simple effect composition" should {
-    /*
     "define pointM" in {
       42.pointM[Option |: List |: Base] mustEqual Emm[Option |: List |: Base, Int](Option(List(42)))
     }
@@ -154,7 +153,6 @@ object EmmSpecs extends Specification {
         Free.pure[List, Option[Int]](Option(42)).wrapM[E] must haveType[Emm[Free[List, ?] |: Option |: Base, Int]].attempt
       }
     }
-    */
 
     //"allow wrapping of two paired constructors where one is state" in {
     //  "inner" >> {
@@ -183,15 +181,12 @@ object EmmSpecs extends Specification {
     //  }
     //}
 
-    /*
     "allow mapping" in {
       val opt: Option[Int] = Some(42)
       val e = opt.liftM[List |: Option |: Base]
 
       e map (2 *) mustEqual Emm[List |: Option |: Base, Int](List(Some(84)))
     }
-    */
-
 
     "allow mapping over a Kleisli" in {
       type E = Option |: Kleisli[?[_], Int, ?] -|: Base
@@ -200,12 +195,8 @@ object EmmSpecs extends Specification {
 
       implicitly[Mapper[Option |: Kleisli[?[_], Int, ?] -|: Base]]
 
-      ok
-
-      //"foobar".pointM[E].map(_ + "baz").run.run(42) must beSome("foobarbaz")
+      "foobar".pointM[E].map(_ + "baz").run.run(42) must beSome("foobarbaz")
     }
-  }
-    /*
 
     "allow binding" in {
       type E = List |: Option |: Base
@@ -408,7 +399,6 @@ object EmmSpecs extends Specification {
       }
     }
   }
-  */
 
   def haveType[A](implicit A: TypeTag[A]) = new {
     def attempt[B](implicit B: TypeTag[B]): Matcher[B] = new Matcher[B] {
