@@ -115,4 +115,43 @@ object Binder extends BinderLowPriorityImplicits {
       NN.pack[F2[G, Y, Z, ?], B](back)
     }
   }
+
+  implicit def pivot1[Pivot[_[_], _], C <: Effects, F <: Effects, T <: Effects](implicit NAP: NestedAtPoint[C, Pivot, F, T], Pivot: Monad[Pivot[F#Point, ?]], TB: Binder[T], TT: Traverser[T]): Binder[C] = new Binder[C] {
+
+    def bind[A, B](fca: CC[A])(f: A => CC[B]): CC[B] = {
+      val back: Pivot[F#Point, T#Point[B]] = Pivot.flatMap(NAP.unpack(fca)) { ca =>
+        val ptta: Pivot[F#Point, T#Point[T#Point[B]]] = TT.traverse[Pivot[F#Point, ?], A, T#Point[B]](ca)(a => NAP.unpack(f(a)))
+
+        Pivot.map(ptta)(tta => TB.bind(tta)(a => a))
+      }
+
+      NAP.pack(back)
+    }
+  }
+
+  implicit def pivot2[Pivot[_[_], _, _], Pivot2[_[_], _, _], Z, C <: Effects, F <: Effects, T <: Effects](implicit NAP: NestedAtPoint[C, Pivot2[?[_], Z, ?], F, T], ev: PermuteH2[Pivot, Pivot2],  Pivot: Monad[Pivot2[F#Point, Z, ?]], TB: Binder[T], TT: Traverser[T]): Binder[C] = new Binder[C] {
+
+    def bind[A, B](fca: CC[A])(f: A => CC[B]): CC[B] = {
+      val back: Pivot2[F#Point, Z, T#Point[B]] = Pivot.flatMap(NAP.unpack(fca)) { ca =>
+        val ptta: Pivot2[F#Point, Z, T#Point[T#Point[B]]] = TT.traverse[Pivot2[F#Point, Z, ?], A, T#Point[B]](ca)(a => NAP.unpack(f(a)))
+
+        Pivot.map(ptta)(tta => TB.bind(tta)(a => a))
+      }
+
+      NAP.pack(back)
+    }
+  }
+
+  implicit def pivot3[Pivot[_[_], _, _, _], Pivot2[_[_], _, _, _], Y, Z, C <: Effects, F <: Effects, T <: Effects](implicit NAP: NestedAtPoint[C, Pivot2[?[_], Y, Z, ?], F, T], ev: PermuteH3[Pivot, Pivot2],  Pivot: Monad[Pivot2[F#Point, Y, Z, ?]], TB: Binder[T], TT: Traverser[T]): Binder[C] = new Binder[C] {
+
+    def bind[A, B](fca: CC[A])(f: A => CC[B]): CC[B] = {
+      val back: Pivot2[F#Point, Y, Z, T#Point[B]] = Pivot.flatMap(NAP.unpack(fca)) { ca =>
+        val ptta: Pivot2[F#Point, Y, Z, T#Point[T#Point[B]]] = TT.traverse[Pivot2[F#Point, Y, Z, ?], A, T#Point[B]](ca)(a => NAP.unpack(f(a)))
+
+        Pivot.map(ptta)(tta => TB.bind(tta)(a => a))
+      }
+
+      NAP.pack(back)
+    }
+  }
 }

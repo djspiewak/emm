@@ -217,6 +217,12 @@ object EmmSpecs extends Specification {
       e mustEqual Emm[E, Int](List(None, Some(2), None, Some(4)))
     }
 
+    "allow binding over a Option of Kleisli of List" in {
+      type E = Option |: Kleisli[?[_], Int, ?] -|: List |: Base
+
+      "foobar".pointM[E].flatMap(x => (x + "baz").pointM[E]).run.run(42) mustEqual Some(List("foobarbaz"))
+    }
+
     "bind over a stack that contains a partially-applied arity-2 constructor" in {
       type E = (String Xor ?) |: Base
 
