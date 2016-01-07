@@ -1,5 +1,5 @@
 package object emm {
-  import Effects._
+  import effects._
 
   implicit class PointSyntax[A](val a: A) extends AnyVal {
     def pointM[C <: Effects](implicit M: Mapper[C]): Emm[C, A] = Emm[C, A](M.point(a))
