@@ -21,6 +21,7 @@ addCompilerPlugin("org.spire-math" % "kind-projector" % "0.7.1" cross CrossVersi
 
 scalacOptions += "-language:_"      // I really can't be bothered with SIP-18
 scalacOptions += "-Ybackend:GenBCode"
+scalacOptions += "-Xlog-implicits"
 
 scalacOptions in Test += "-Yrangepos"
 

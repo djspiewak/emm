@@ -96,7 +96,7 @@ object Mapper extends MapperLowPriorityImplicits {
       NAP.pack(Pivot.map(NAP.unpack(fa)) { ta => T.map(ta)(f) })
   }
 
-  implicit def pivot2[Pivot[_[_], _, _], Pivot2[_[_], _, _], Z, C <: Effects, F <: Effects, T <: Effects](implicit ev: PermuteH2[Pivot, Pivot2], NAP: NestedAtPoint[C, Pivot2[?[_], Z, ?], F, T], Pivot: Applicative[Pivot2[F#Point, Z, ?]], T: Mapper[T]): Mapper[C] = new Mapper[C] {
+  implicit def pivot2[Pivot[_[_], _, _], Pivot2[_[_], _, _], Z, C <: Effects, F <: Effects, T <: Effects](implicit NAP: NestedAtPoint[C, Pivot2[?[_], Z, ?], F, T], ev: PermuteH2[Pivot, Pivot2], Pivot: Applicative[Pivot2[F#Point, Z, ?]], T: Mapper[T]): Mapper[C] = new Mapper[C] {
 
     def point[A](a: A): CC[A] = NAP.pack(Pivot.pure(T.point(a)))
 
