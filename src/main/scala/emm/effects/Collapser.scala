@@ -130,4 +130,13 @@ object Collapser extends CollapserLowPriorityImplicits2 {
     def apply(gca: Point[E]): Out#Point[A] =
       gca.asInstanceOf[Out#Point[A]]      // already proven equivalent; evaluation requires a Functor
   }
+
+  // C == F ++ (Pivot -|: T)
+  implicit def pivot1[E, Pivot[_[_], _], C <: Effects, F <: Effects, T <: Effects](implicit NAP: NestedAtPoint[C, Pivot, F, T], T: Collapser[E, T]): Collapser.Aux[E, C, T.A, F#Append[Pivot -|: T.Out]] = new Collapser[E, C] {
+    type A = T.A
+    type Out = F#Append[Pivot -|: T.Out]
+
+    def apply(gca: Point[E]): Out#Point[A] =
+      gca.asInstanceOf[Out#Point[A]]      // already proven equivalent; evaluation requires a Functor
+  }
 }
