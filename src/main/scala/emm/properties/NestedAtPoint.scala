@@ -59,7 +59,8 @@ object NestedAtPoint {
     def unpack[A](cc: C2#Point[A]): Pivot[(E.F |: F)#Point, Y, Z, T#Point[A]] = cc.asInstanceOf[Pivot[(E.F |: F)#Point, Y, Z, T#Point[A]]]
   }
 
-  implicit def corecursePivot1[Pivot[_[_], _], C <: Effects, C2 <: Effects, F <: Effects, T <: Effects](implicit E: PivotExtract[C, C2], C: NestedAtPoint[C, Pivot, F, T]): NestedAtPoint[C2, Pivot, E.Pivot -|: F, T] = new NestedAtPoint[C2, Pivot, E.Pivot -|: F, T] {
+  // these cases are currently disabled since we have no present use for them and they slow down compilation by roughly 83%
+  /*implicit def corecursePivot1[Pivot[_[_], _], C <: Effects, C2 <: Effects, F <: Effects, T <: Effects](implicit E: PivotExtract[C, C2], C: NestedAtPoint[C, Pivot, F, T]): NestedAtPoint[C2, Pivot, E.Pivot -|: F, T] = new NestedAtPoint[C2, Pivot, E.Pivot -|: F, T] {
     def NN = C.NN
 
     def pack[A](cc: Pivot[(E.Pivot -|: F)#Point, T#Point[A]]): C2#Point[A] = cc.asInstanceOf[C2#Point[A]]
@@ -78,5 +79,5 @@ object NestedAtPoint {
 
     def pack[A](cc: Pivot[(E.Pivot -|: F)#Point, Q, R, T#Point[A]]): C2#Point[A] = cc.asInstanceOf[C2#Point[A]]
     def unpack[A](cc: C2#Point[A]): Pivot[(E.Pivot -|: F)#Point, Q, R, T#Point[A]] = cc.asInstanceOf[Pivot[(E.Pivot -|: F)#Point, Q, R, T#Point[A]]]
-  }
+  }*/
 }
