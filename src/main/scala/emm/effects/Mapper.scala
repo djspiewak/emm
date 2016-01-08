@@ -7,12 +7,16 @@ import scala.annotation.implicitNotFound
 import properties._
 
 @implicitNotFound("could not compute a method for mapping over effect stack ${C}; either a member of the stack lacks an Applicative, or its Applicative instance is ambiguous")
-trait Mapper[C <: Effects] {
+trait Mapper[C <: Effects] { outer =>
   type CC[A] = C#Point[A]
 
   def point[A](a: A): CC[A]
 
   def map[A, B](fa: CC[A])(f: A => B): CC[B]
+
+  def functor: Functor[CC] = new Functor[CC] {
+    def map[A, B](fa: CC[A])(f: A => B): CC[B] = outer.map(fa)(f)
+  }
 }
 
 trait MapperLowPriorityImplicits {

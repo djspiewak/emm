@@ -1,7 +1,7 @@
 package emm
 package effects
 
-import cats.{Applicative, FlatMap, Functor, Monad, Traverse, Eval}
+import cats.{~>, Applicative, FlatMap, Functor, Monad, Traverse, Eval}
 import scala.annotation.implicitNotFound
 
 import properties._
@@ -15,37 +15,36 @@ trait Lifter[E, C <: Effects] {
 }
 
 trait LifterLowPriorityImplicits {
-  import cats.state.State
+  import cats.data.Kleisli
 
-  /*
-  implicit def headState[S, A]: Lifter.Aux[State[S, A], State[S, ?] |: Base, A] = new Lifter[State[S, A], State[S, ?] |: Base] {
+  implicit def midKleisli[A, Z, C <: Effects, F <: Effects, T <: Effects](implicit NAP: NestedAtPoint[C, Kleisli[?[_], Z, ?], F, T], F: Mapper[F], T: Mapper[T]): Lifter.Aux[Kleisli[λ[X => X], Z, A], C, A] = new Lifter[Kleisli[λ[X => X], Z, A], C] {
     type Out = A
 
-    def apply(fa: State[S, A]) = fa
+    def apply(e: Kleisli[λ[X => X], Z, A]): CC[Out] = {
+      val t = new (λ[X => X] ~> F#Point) {
+        def apply[A](a: A): F#Point[A] = F.point(a)
+      }
+
+      NAP.pack(e.transform[F#Point](t).map(T.point)(F.functor))
+    }
   }
 
-  implicit def midState[S, A, C <: Effects](implicit C: Mapper[C]): Lifter.Aux[State[S, A], State[S, ?] |: C, A] = new Lifter[State[S, A], State[S, ?] |: C] {
-    type Out = A
+  implicit def leftPivotKleisli[E, Z, C <: Effects, F <: Effects, T <: Effects](implicit NAP: NestedAtPoint[C, Kleisli[?[_], Z, ?], F, T], T: Mapper[T], F: Lifter[E, F], FM: Mapper[F]): Lifter.Aux[E, C, F.Out] = new Lifter[E, C] {
+    type Out = F.Out
 
-    def apply(fa: State[S, A]) = fa map { a => C.point(a) }
+    def apply(e: E): CC[Out] =
+      NAP.pack(Kleisli[F#Point, Z, T#Point[F.Out]]({ _ => FM.map(F(e)) { a => T.point(a) } }))
   }
 
-  implicit def corecurseState[S, E, C <: Effects](implicit L: Lifter[E, C]): Lifter.Aux[E, State[S, ?] |: C, L.Out] = new Lifter[E, State[S, ?] |: C] {
-    type Out = L.Out
+  implicit def rightPivotKleisli[E, Z, C <: Effects, F <: Effects, T <: Effects](implicit NAP: NestedAtPoint[C, Kleisli[?[_], Z, ?], F, T], T: Lifter[E, T], F: Mapper[F]): Lifter.Aux[E, C, T.Out] = new Lifter[E, C] {
+    type Out = T.Out
 
-    def apply(e: E) = State.pure(L(e))
+    def apply(e: E): CC[Out] = NAP.pack(Kleisli[F#Point, Z, T#Point[T.Out]] { _ => F.point(T(e)) })
   }
-  */
 }
 
 object Lifter extends LifterLowPriorityImplicits {
   type Aux[E, C <: Effects, Out0] = Lifter[E, C] { type Out = Out0 }
-
-  //implicit def base[A]: Lifter[A, Base] = new Lifter[A, Base] {
-  //  type Out = A
-
-  //  def apply(fa: A) = fa
-  //}
 
   implicit def mid1[F[_], A, C <: Effects](implicit C: Mapper[C], F: Functor[F], NN: NonNested[C]): Lifter.Aux[F[A], F |: C, A] = new Lifter[F[A], F |: C] {
     type Out = A

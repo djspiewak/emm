@@ -117,6 +117,24 @@ object EmmSpecs extends Specification {
       }
     }
 
+    "lift into a stack that contains a kleisli" in {
+      import cats.data.Kleisli
+
+      "inner" >> {
+        type E = Option |: Kleisli[?[_], String, ?] -|: Base
+
+        Kleisli.pure[λ[X => X], String, Int](12).liftM[E].run.run("foo") must beSome(12)
+        Option(42).liftM[E].run.run("foo") must beSome(42)
+      }
+
+      "outer" >> {
+        type E = Free[List, ?] |: Option |: Base
+
+        Free.pure[List, Int](42).liftM[E].run.runM(identity) mustEqual List(Option(42))
+        Option(42).liftM[E].run.runM(identity) mustEqual List(Option(42))
+      }
+    }
+
     "allow wrapping of two paired constructors" in {
       Option(List(42)).wrapM must haveType[Emm[Option |: List |: Base, Int]].attempt
       Option(List(42)).wrapM[Option |: List |: Base] must haveType[Emm[Option |: List |: Base, Int]].attempt
