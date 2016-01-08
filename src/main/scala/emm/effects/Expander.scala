@@ -126,4 +126,53 @@ object Expander extends ExpanderLowPriorityImplicits {
     def apply[A](gca: Point[A]): Out#Point[CC[A]] =
       gca.asInstanceOf[Out#Point[CC[A]]]     // already proven equivalent; evaluation requires a Functor
   }
+
+  implicit def pivot1Base[Pivot[_[_], _], C <: Effects, F <: Effects](implicit NAP: NestedAtPoint[C, Pivot, F, Base]): Expander.Aux[C, Pivot[F#Point, ?], Base] = new Expander[C] {
+    type CC[A] = Pivot[F#Point, A]
+    type Out = Base
+
+    def apply[A](gca: C#Point[A]): Out#Point[CC[A]] =
+      gca.asInstanceOf[Out#Point[CC[A]]]     // already proven equivalent; evaluation requires a Functor
+  }
+
+  // C == F ++ (Pivot -|: T)
+  implicit def pivot1[Pivot[_[_], _], C <: Effects, F <: Effects, T <: Effects](implicit NAP: NestedAtPoint[C, Pivot, F, T], T: Expander[T]): Expander.Aux[C, T.CC, F#Append[Pivot -|: T.Out]] = new Expander[C] {
+    type CC[A] = T.CC[A]
+    type Out = F#Append[Pivot -|: T.Out]
+
+    def apply[A](gca: C#Point[A]): Out#Point[CC[A]] =
+      gca.asInstanceOf[Out#Point[CC[A]]]     // already proven equivalent; evaluation requires a Functor
+  }
+
+  implicit def pivot2Base[Pivot[_[_], _, _], Z, C <: Effects, F <: Effects, T <: Effects](implicit NAP: NestedAtPoint[C, Pivot[?[_], Z, ?], F, T]): Expander.Aux[C, Pivot[F#Point, Z, ?], Base] = new Expander[C] {
+    type CC[A] = Pivot[F#Point, Z, A]
+    type Out = Base
+
+    def apply[A](gca: C#Point[A]): Out#Point[CC[A]] =
+      gca.asInstanceOf[Out#Point[CC[A]]]     // already proven equivalent; evaluation requires a Functor
+  }
+
+  implicit def pivot2[Pivot[_[_], _, _], Z, C <: Effects, F <: Effects, T <: Effects](implicit NAP: NestedAtPoint[C, Pivot[?[_], Z, ?], F, T], T: Expander[T]): Expander.Aux[C, T.CC, F#Append[Pivot[?[_], Z, ?] -|: T.Out]] = new Expander[C] {
+    type CC[A] = T.CC[A]
+    type Out = F#Append[Pivot[?[_], Z, ?] -|: T.Out]
+
+    def apply[A](gca: C#Point[A]): Out#Point[CC[A]] =
+      gca.asInstanceOf[Out#Point[CC[A]]]     // already proven equivalent; evaluation requires a Functor
+  }
+
+  implicit def pivot3Base[Pivot[_[_], _, _, _], Y, Z, C <: Effects, F <: Effects, T <: Effects](implicit NAP: NestedAtPoint[C, Pivot[?[_], Y, Z, ?], F, T]): Expander.Aux[C, Pivot[F#Point, Y, Z, ?], Base] = new Expander[C] {
+    type CC[A] = Pivot[F#Point, Y, Z, A]
+    type Out = Base
+
+    def apply[A](gca: C#Point[A]): Out#Point[CC[A]] =
+      gca.asInstanceOf[Out#Point[CC[A]]]     // already proven equivalent; evaluation requires a Functor
+  }
+
+  implicit def pivot3[Pivot[_[_], _, _, _], Y, Z, C <: Effects, F <: Effects, T <: Effects](implicit NAP: NestedAtPoint[C, Pivot[?[_], Y, Z, ?], F, T], T: Expander[T]): Expander.Aux[C, T.CC, F#Append[Pivot[?[_], Y, Z, ?] -|: T.Out]] = new Expander[C] {
+    type CC[A] = T.CC[A]
+    type Out = F#Append[Pivot[?[_], Y, Z, ?] -|: T.Out]
+
+    def apply[A](gca: C#Point[A]): Out#Point[CC[A]] =
+      gca.asInstanceOf[Out#Point[CC[A]]]     // already proven equivalent; evaluation requires a Functor
+  }
 }
