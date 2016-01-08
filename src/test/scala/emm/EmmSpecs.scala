@@ -1,7 +1,6 @@
 package emm
 
 import org.specs2.mutable._
-import org.specs2.matcher._
 
 import cats._
 import cats.data._
@@ -14,125 +13,11 @@ import cats.std.function._
 import scalaz.concurrent.Task
 import scalaz.\/-
 
-import scala.reflect.runtime.universe.TypeTag
-
-object EmmSpecs extends Specification {
-
-  implicit def freeTraverse[F[_]](implicit trF: Traverse[F]): Traverse[Free[F, ?]] = new Traverse[Free[F, ?]] {
-    def traverse[G[_], A, B](fa: Free[F, A])(f: A => G[B])(implicit ap: Applicative[G]): G[Free[F, B]] =
-      fa.resume match {
-        case Xor.Left(s) => ap.map(trF.traverse(s)(fa => traverse[G, A ,B](fa)(f)))(ffa => Free.liftF(ffa).flatMap(a => a))
-        case Xor.Right(a) => ap.map(f(a))(Free.pure(_))
-      }
-
-    def foldLeft[A, B](fa: Free[F, A], b: B)(f: (B, A) => B): B = ???
-
-    def foldRight[A, B](fa: Free[F, A], lb: Eval[B])(f: (A, Eval[B]) => Eval[B]): Eval[B] = ???
-  }
-
-  implicit val taskFlatMap: Monad[Task] = new Monad[Task] {
-    import scalaz.concurrent.Future
-    def pure[A](x: A): Task[A] = new Task(Future.delay(Task.Try(x)))
-
-    def flatMap[A, B](fa: Task[A])(f: A => Task[B]): Task[B] = {
-      fa.flatMap(f)
-    }
-  }
+object EmmSpecs extends Specification with TestHelpers {
 
   "simple effect composition" should {
     "define pointM" in {
       42.pointM[Option |: List |: Base] mustEqual Emm[Option |: List |: Base, Int](Option(List(42)))
-    }
-
-    "allow lifting in either direction" in {
-      val opt: Option[Int] = Some(42)
-
-      opt.liftM[Option |: List |: Base] must haveType[Emm[Option |: List |: Base, Int]].attempt
-      opt.liftM[List |: Option |: Base] must haveType[Emm[List |: Option |: Base, Int]].attempt
-    }
-
-    "lift into an effect stack of depth three" in {
-      type E = Task |: List |: Option |: Base
-
-      Option(42).liftM[E].run.run mustEqual List(Option(42))
-      List(42).liftM[E].run.run mustEqual List(Option(42))
-      (Task now 42).liftM[E].run.run mustEqual List(Option(42))
-    }
-
-    "lift into a stack that contains a partially-applied arity-2 constructor" in {
-      "inner" >> {
-        type E = Option |: (String Xor ?) |: Base
-
-        Xor.right[String, Int](42).liftM[E] mustEqual Emm[E, Int](Option(Xor.right(42)))
-        Xor.left[String, Int]("fuuuuuu").liftM[E] mustEqual Emm[E, Int](Option(Xor.left("fuuuuuu")))
-      }
-
-      "outer" >> {
-        type E = (String Xor ?) |: Option |: Base
-
-        Xor.right[String, Int](42).liftM[E] mustEqual Emm[E, Int](Xor.right(Option(42)))
-        Xor.left[String, Int]("fuuuuuu").liftM[E] mustEqual Emm[E, Int](Xor.left("fuuuuuu"))
-      }
-    }
-
-    "lift into a stack that contains a partially-applied arity-2 higher-order constructor" in {
-      "inner" >> {
-        type E = Option |: Free[List, ?] |: Base
-
-        Free.pure[List, Int](42).liftM[E].run must beLike {
-          case Some(f) => f runM identity mustEqual List(42)
-        }
-
-        Option(42).liftM[E].run must beLike {
-          case Some(f) => f runM identity mustEqual List(42)
-        }
-      }
-
-      "outer" >> {
-        type E = Free[List, ?] |: Option |: Base
-
-        Free.pure[List, Int](42).liftM[E].run.runM(identity) mustEqual List(Option(42))
-        Option(42).liftM[E].run.runM(identity) mustEqual List(Option(42))
-      }
-    }
-
-    "lift into a stack that contains a partially-applied arity-2 higher-order constructor and an arity-2 constructor" in {
-      "inner" >> {
-        type E = (String Xor ?) |: Free[List, ?] |: Base
-
-        Free.pure[List, Int](42).liftM[E].run must beLike {
-          case Xor.Right(f) => f runM identity mustEqual List(42)
-        }
-
-        Xor.right[String, Int](42).liftM[E].run must beLike {
-          case Xor.Right(f) => f runM identity mustEqual List(42)
-        }
-      }
-
-      "outer" >> {
-        type E = Free[List, ?] |: (String Xor ?) |: Base
-
-        Free.pure[List, Int](42).liftM[E].run.runM(identity) mustEqual List(Xor.right(42))
-        Xor.right[String, Int](42).liftM[E].run.runM(identity) mustEqual List(Xor.right(42))
-      }
-    }
-
-    "lift into a stack that contains a kleisli" in {
-      import cats.data.Kleisli
-
-      "inner" >> {
-        type E = Option |: Kleisli[?[_], String, ?] -|: Base
-
-        Kleisli.pure[λ[X => X], String, Int](12).liftM[E].run.run("foo") must beSome(12)
-        Option(42).liftM[E].run.run("foo") must beSome(42)
-      }
-
-      "outer" >> {
-        type E = Free[List, ?] |: Option |: Base
-
-        Free.pure[List, Int](42).liftM[E].run.runM(identity) mustEqual List(Option(42))
-        Option(42).liftM[E].run.runM(identity) mustEqual List(Option(42))
-      }
     }
 
     "allow wrapping of two paired constructors" in {
@@ -198,163 +83,9 @@ object EmmSpecs extends Specification {
     //    State.pure[String, Option[Int]](Option(42)).wrapM[E](foo) must haveType[Emm[State[String, ?] |: Option |: Base, Int]].attempt
     //  }
     //}
-
-    "allow mapping" in {
-      val opt: Option[Int] = Some(42)
-      val e = opt.liftM[List |: Option |: Base]
-
-      e map (2 *) mustEqual Emm[List |: Option |: Base, Int](List(Some(84)))
-    }
-
-    "allow mapping over a Kleisli" in {
-      type E = Option |: Kleisli[?[_], Int, ?] -|: Base
-
-      "foobar".pointM[E].map(_ + "baz").run.run(42) must beSome("foobarbaz")
-    }
-
-    "allow mapping over a List of Option of Kleisli" in {
-      type E = List |: Option |: Kleisli[?[_], Int, ?] -|: Base
-
-      "foobar".pointM[E].map(_ + "baz").run.run(42) mustEqual List(Some("foobarbaz"))
-    }
-
-    "allow mapping over a Option of Kleisli of List" in {
-      type E = Option |: Kleisli[?[_], Int, ?] -|: List |: Base
-
-      "foobar".pointM[E].map(_ + "baz").run.run(42) mustEqual Some(List("foobarbaz"))
-    }
-
-    "allow binding" in {
-      type E = List |: Option |: Base
-
-      val e = for {
-        v <- List(1, 2, 3, 4).liftM[E]
-        v2 <- (Some(v) filter { _ % 2 == 0 }).liftM[E]
-      } yield v2
-
-      e mustEqual Emm[E, Int](List(None, Some(2), None, Some(4)))
-    }
-
-    "allow binding over a Option of Kleisli of List" in {
-      type E = Option |: Kleisli[?[_], Int, ?] -|: List |: Base
-
-      "foobar".pointM[E].flatMap(x => (x + "baz").pointM[E]).run.run(42) mustEqual Some(List("foobarbaz"))
-    }
-
-    "allow binding over a Option of List of Kleisli" in {
-      type E = Option |: List |: Kleisli[?[_], Int, ?] -|: Base
-
-      "foobar".pointM[E].flatMap(x => (x + "baz").pointM[E]).run.run(42) mustEqual Some(List("foobarbaz"))
-    }
-
-    "bind over a stack that contains a partially-applied arity-2 constructor" in {
-      type E = (String Xor ?) |: Base
-
-      42.pointM[E] flatMap { _ => "foo".pointM[E] } mustEqual Emm[E, String](Xor.right("foo"))
-    }
-
-    "bind over a stack that contains a partially-applied arity-2 higher-order constructor" in {
-      "base" >> {
-        type E = Free[List, ?] |: Base
-
-        (42.pointM[E] flatMap { _ => "foo".pointM[E] } run).runM(identity) mustEqual List("foo")
-      }
-
-      "inner" >> {
-        type E = Option |: Free[List, ?] |: Base
-
-        (42.pointM[E] flatMap { _ => "foo".pointM[E] } run) must beLike {
-          case Some(f) => f.runM(identity) mustEqual List("foo")
-        }
-      }
-
-      "outer" >> {
-        type E = Free[List, ?] |: Option |: Base
-
-        (42.pointM[E] flatMap { _ => "foo".pointM[E] } run).runM(identity) mustEqual List(Option("foo"))
-      }
-    }
-
-    //"bind over a stack that contains state" in {
-    //  "empty" >> {
-    //    type E = State[String, ?] |: Base
-
-    //    (42.pointM[E] flatMap { _ => "foo".pointM[E] }).run.runA("blah").run mustEqual "foo"
-    //  }
-
-    //  "outer" >> {
-    //    type E = State[String, ?] |: Option |: Base
-
-    //    (42.pointM[E] flatMap { _ => "foo".pointM[E] }).run.runA("blah").run must beSome("foo")
-    //  }
-    //}
-
-    "enable flatMapM in any direction" in {
-      type E = List |: Option |: Base
-
-      val e1 = List(1, 2, 3, 4).liftM[E]
-      val e2 = e1 flatMapM { v => Some(v) filter { _ % 2 == 0 } }
-      val e3 = e2 flatMapM { v => List(v, v) }
-
-      e3 mustEqual Emm[E, Int](List(None, Some(2), Some(2), None, Some(4), Some(4)))
-    }
-
-    "allow flatMapM on a stack containing an arity-2 constructor" in {
-      type E = List |: (String Xor ?) |: Base
-
-      val e1 = List(1, 2, 3, 4).liftM[E]
-      val e2 = e1 flatMapM { v => if (v % 2 == 0) Xor.right(v) else Xor.left("that's... odd") }
-      val e3 = e2 flatMapM { v => List(v, v) }
-
-      e3 mustEqual Emm[E, Int](List(Xor.left("that's... odd"), Xor.right(2), Xor.right(2), Xor.left("that's... odd"), Xor.right(4), Xor.right(4)))
-    }
-
-    "allow flatMapM on a stack containing a higher-order arity-2 constructor" in {
-      type E = List |: Free[Option, ?] |: Base
-
-      val e1 = List(1, 2, 3, 4).liftM[E]
-      val e2 = e1 flatMapM { v => if (v % 2 == 0) Free.pure[Option, Int](v) else Free.liftF[Option, Int](None) }
-      val e3 = e2 flatMapM { v => List(v, v) }
-
-      e3.run must beLike {
-        case List(f1, f2, f3, f4, f5, f6) => {
-          f1.runM(identity) mustEqual None
-          f2.runM(identity) mustEqual Some(2)
-          f3.runM(identity) mustEqual Some(2)
-          f4.runM(identity) mustEqual None
-          f5.runM(identity) mustEqual Some(4)
-          f6.runM(identity) mustEqual Some(4)
-        }
-      }
-    }
   }
 
   "non-traversable effect composition" should {
-    "allow mapping in either direction" in {
-      val opt: Option[Int] = Some(42)
-
-      opt.liftM[Task |: Option |: Base] map (2 *)
-      opt.liftM[Option |: Task |: Base] map (2 *)
-
-      ok
-    }
-
-    "allow binding where the non-traversable effect is outermost" in {
-      type E = Task |: Option |: Base
-      val opt: Option[Int] = Some(42)
-
-      var sink = 0
-
-      val e = for {
-        i <- opt.liftM[E]
-        _ <- (Task delay { sink += i }).liftM[E]
-      } yield ()
-
-      e.run.run
-
-      sink mustEqual 42
-    }
-
     "enable access to the base of the stack" in {
       type E = Task |: Option |: Base
       val opt: Option[Int] = None
@@ -435,13 +166,6 @@ object EmmSpecs extends Specification {
           case Some(t) => t.run mustEqual \/-(42)
         }
       }
-    }
-  }
-
-  def haveType[A](implicit A: TypeTag[A]) = new {
-    def attempt[B](implicit B: TypeTag[B]): Matcher[B] = new Matcher[B] {
-      def apply[B2 <: B](s: Expectable[B2]) =
-        result(A.tpe =:= B.tpe, s"${s.description} has type ${A.tpe}", s"${s.description} does not have type ${A.tpe}; has type ${B.tpe}", s)
     }
   }
 }
