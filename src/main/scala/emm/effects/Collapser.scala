@@ -147,4 +147,36 @@ object Collapser extends CollapserLowPriorityImplicits2 {
     def apply(gca: Point[E]): Out#Point[A] =
       gca.asInstanceOf[Out#Point[A]]      // already proven equivalent; evaluation requires a Functor
   }
+
+  implicit def pivot2Base[E, Pivot[_[_], _, _], Z, C <: Effects, F <: Effects, T <: Effects](implicit NAP: NestedAtPoint[C, Pivot[?[_], Z, ?], F, T]): Collapser.Aux[E, C, Pivot[F#Point, Z, E], Base] = new Collapser[E, C] {
+    type A = Pivot[F#Point, Z, E]
+    type Out = Base
+
+    def apply(gca: Point[E]): Out#Point[A] =
+      gca.asInstanceOf[Out#Point[A]]      // already proven equivalent; evaluation requires a Functor
+  }
+
+  implicit def pivot2[E, Pivot[_[_], _, _], Z, C <: Effects, F <: Effects, T <: Effects](implicit NAP: NestedAtPoint[C, Pivot[?[_], Z, ?], F, T], T: Collapser[E, T]): Collapser.Aux[E, C, T.A, F#Append[Pivot[?[_], Z, ?] -|: T.Out]] = new Collapser[E, C] {
+    type A = T.A
+    type Out = F#Append[Pivot[?[_], Z, ?] -|: T.Out]
+
+    def apply(gca: Point[E]): Out#Point[A] =
+      gca.asInstanceOf[Out#Point[A]]      // already proven equivalent; evaluation requires a Functor
+  }
+
+  implicit def pivot3Base[E, Pivot[_[_], _, _, _], Y, Z, C <: Effects, F <: Effects, T <: Effects](implicit NAP: NestedAtPoint[C, Pivot[?[_], Y, Z, ?], F, Base]): Collapser.Aux[E, C, Pivot[F#Point, Y, Z, E], Base] = new Collapser[E, C] {
+    type A = Pivot[F#Point, Y, Z, E]
+    type Out = Base
+
+    def apply(gca: Point[E]): Out#Point[A] =
+      gca.asInstanceOf[Out#Point[A]]      // already proven equivalent; evaluation requires a Functor
+  }
+
+  implicit def pivot3[E, Pivot[_[_], _, _, _], Y, Z, C <: Effects, F <: Effects, T <: Effects](implicit NAP: NestedAtPoint[C, Pivot[?[_], Y, Z, ?], F, T], T: Collapser[E, T]): Collapser.Aux[E, C, T.A, F#Append[Pivot[?[_], Y, Z, ?] -|: T.Out]] = new Collapser[E, C] {
+    type A = T.A
+    type Out = F#Append[Pivot[?[_], Y, Z, ?] -|: T.Out]
+
+    def apply(gca: Point[E]): Out#Point[A] =
+      gca.asInstanceOf[Out#Point[A]]      // already proven equivalent; evaluation requires a Functor
+  }
 }
