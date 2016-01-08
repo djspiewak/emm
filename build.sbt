@@ -1,29 +1,30 @@
+lazy val commonSettings = Seq(
+  organization := "com.codecommit",
+
+  licenses += ("Apache-2.0", url("http://www.apache.org/licenses/")),
+
+  scalaVersion := "2.11.7",
+
+  crossScalaVersions := Seq(scalaVersion.value, "2.10.6"),
+
+  shimsVersion := "0.1",
+
+  addCompilerPlugin("org.spire-math" % "kind-projector" % "0.7.1" cross CrossVersion.binary),
+
+  scalacOptions += "-language:_",      // I really can't be bothered with SIP-18
+  scalacOptions += "-Ybackend:GenBCode",
+  //scalacOptions += "-Xlog-implicits",
+
+  scalacOptions in Test += "-Yrangepos")
+
+lazy val root = project.in(file(".")).settings(commonSettings: _*).settings(name := "emm").aggregate(core, cats, scalaz)
+lazy val core = project.in(file("core")).settings(commonSettings: _*)
+lazy val cats = project.in(file("cats")).settings(commonSettings: _*).dependsOn(core)
+lazy val scalaz = project.in(file("scalaz")).settings(commonSettings: _*).dependsOn(core)
+
 enablePlugins(GitVersioning)
 
 val ReleaseTag = """^v([\d\.]+)$""".r
-
-organization := "com.codecommit"
-
-name := "emm"
-
-licenses += ("Apache-2.0", url("http://www.apache.org/licenses/"))
-
-scalaVersion := "2.11.7"
-
-crossScalaVersions := Seq(scalaVersion.value, "2.10.6")
-
-libraryDependencies ++= Seq(
-  "org.spire-math" %% "cats" % "0.3.0",
-  "org.scalaz" %% "scalaz-core" % "7.1.6" % "test",
-  "org.specs2" %% "specs2-core" % "3.6.6" % "test")
-
-addCompilerPlugin("org.spire-math" % "kind-projector" % "0.7.1" cross CrossVersion.binary)
-
-scalacOptions += "-language:_"      // I really can't be bothered with SIP-18
-scalacOptions += "-Ybackend:GenBCode"
-//scalacOptions += "-Xlog-implicits"
-
-scalacOptions in Test += "-Yrangepos"
 
 git.baseVersion := "0.1"
 
