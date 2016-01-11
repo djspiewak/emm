@@ -1,7 +1,7 @@
 package emm
 package effects
 
-import cats.{Applicative, FlatMap, Functor, Monad, Traverse, Eval}
+import cats._
 import scala.annotation.implicitNotFound
 
 import properties._
@@ -20,17 +20,27 @@ trait Mapper[C <: Effects] { outer =>
 }
 
 trait MapperLowPriorityImplicits {
-  import cats.state.State
   import cats.data.Kleisli
+  import cats.state.State
 
   // we require a Binder[F] because we cannot derive a consistent Applicative from Mapper[F]
   implicit def pivotKleisli[Z, C <: Effects, F <: Effects, T <: Effects](implicit NAP: NestedAtPoint[C, Kleisli[?[_], Z, ?], F, T], FB: Binder[F], FM: Mapper[F], T: Mapper[T]): Mapper[C] = new Mapper[C] {
     import MapperBinder.monad
 
-    def point[A](a: A): CC[A] = NAP.pack(Kleisli.pure[F#Point, Z, T#Point[A]](T.point(a)))
+    def point[A](a: A): CC[A] =
+      NAP.pack(Kleisli.pure[F#Point, Z, T#Point[A]](T.point(a)))
 
     def map[A, B](fa: CC[A])(f: A => B): CC[B] =
       NAP.pack(NAP.unpack(fa) map { ta => T.map(ta)(f) })
+  }
+
+  implicit def mapperState[S, C <: Effects](implicit C: Mapper[C], NN: NonNested[C]): Mapper[State[S, ?] |: C] = new Mapper[State[S, ?] |: C] {
+
+    def point[A](a: A): CC[A] =
+      NN.pack[State[S, ?], A](State.apply[S, C.CC[A]] { s => (s, C.point(a)) })
+
+    def map[A, B](fa: CC[A])(f: A => B): CC[B] =
+      NN.pack[State[S, ?], B](NN.unpack[State[S, ?], A](fa) map { sa => C.map(sa)(f) })
   }
 }
 
