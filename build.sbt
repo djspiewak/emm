@@ -7,13 +7,15 @@ lazy val commonSettings = Seq(
 
   crossScalaVersions := Seq(scalaVersion.value, "2.10.6"),
 
-  shimsVersion := "0.1",
+  shimsVersion := "0.1-3532451",
+
+  libraryDependencies += "org.specs2" %% "specs2-core" % "3.6.6" % "test",
 
   addCompilerPlugin("org.spire-math" % "kind-projector" % "0.7.1" cross CrossVersion.binary),
 
   scalacOptions += "-language:_",      // I really can't be bothered with SIP-18
   scalacOptions += "-Ybackend:GenBCode",
-  //scalacOptions += "-Xlog-implicits",
+  // scalacOptions += "-Xlog-implicits",
 
   scalacOptions in Test += "-Yrangepos")
 

@@ -1,10 +1,12 @@
 package emm
 
+import emm.cats._
+
 import org.specs2.mutable._
 
-import cats.std.list._
-import cats.std.option._
-import cats.std.future._
+import _root_.cats.std.list._
+import _root_.cats.std.option._
+import _root_.cats.std.future._
 
 import scala.concurrent.{Await, Future}
 import scala.concurrent.duration._

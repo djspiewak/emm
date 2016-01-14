@@ -2,11 +2,11 @@ package emm
 
 import org.specs2.mutable._
 
-import cats._
-import cats.std.list._
-import cats.std.option._
+import _root_.cats._
+import _root_.cats.std.list._
+import _root_.cats.std.option._
 
-object ApplicativeSpecs extends Specification {
+/*object ApplicativeSpecs extends Specification {
   "derived applicative" should {
     "be consistent with bind in Option |: List" in {
       type E = Option |: List |: Base
@@ -26,4 +26,4 @@ object ApplicativeSpecs extends Specification {
       M.ap(a)(b) mustEqual (M.flatMap(b) { b => M.map(a)(b) })
     }
   }
-}
+}*/

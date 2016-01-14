@@ -1,7 +1,7 @@
 package emm
 package effects
 
-import cats.{Applicative, FlatMap, Functor, Monad, Traverse, Eval}
+import shims.{Applicative, FlatMap, Functor, Monad, Traverse}
 import scala.annotation.implicitNotFound
 
 import properties._
@@ -15,26 +15,7 @@ trait Expander[C <: Effects] {
   def apply[A](fa: Point[A]): Out#Point[CC[A]]
 }
 
-trait ExpanderLowPriorityImplicits {
-  import cats.state.State
-
-  /*implicit def headState[S]: Expander.Aux[State[S, ?] |: Base, State[S, ?], Base] = new Expander[State[S, ?] |: Base] {
-    type CC[A] = State[S, A]
-    type Out = Base
-
-    def apply[A](fa: State[S, A]): State[S, A] = fa
-  }
-
-  implicit def corecurseState[S, C <: Effects](implicit C: Expander[C]): Expander.Aux[State[S, ?] |: C, C.CC, State[S, ?] |: C.Out] = new Expander[State[S, ?] |: C] {
-    type CC[A] = C.CC[A]
-    type Out = State[S, ?] |: C.Out
-
-    def apply[A](gca: State[S, C#Point[A]]): Out#Point[CC[A]] =
-      gca.asInstanceOf[Out#Point[CC[A]]]     // already proven equivalent; evaluation requires a Functor
-  }*/
-}
-
-object Expander extends ExpanderLowPriorityImplicits {
+object Expander {
   type Aux[C <: Effects, CC0[_], Out0 <: Effects] = Expander[C] { type CC[A] = CC0[A]; type Out = Out0 }
 
   implicit def head1[F[_]]: Expander.Aux[F |: Base, F, Base] = new Expander[F |: Base] {

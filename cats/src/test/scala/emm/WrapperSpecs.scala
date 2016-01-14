@@ -1,10 +1,12 @@
 package emm
 
+import emm.cats._
+
 import org.specs2.mutable._
 
-import cats._
-import cats.data._
-import cats.free.Free
+import _root_.cats._
+import _root_.cats.data._
+import _root_.cats.free.Free
 
 object WrapperSpecs extends Specification with TestHelpers {
 

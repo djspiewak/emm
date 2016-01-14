@@ -1,7 +1,7 @@
 package emm
 package effects
 
-import cats.{Applicative, FlatMap, Functor, Monad, Traverse, Eval}
+import shims.{Applicative, FlatMap, Functor, Monad, Traverse}
 import scala.annotation.implicitNotFound
 
 import properties._
@@ -15,20 +15,12 @@ trait Wrapper[E, C <: Effects] {
 }
 
 trait WrapperLowPriorityImplicits1 {
-  import cats.state.State
 
   implicit def head[A0]: Wrapper.Aux[A0, Base, A0] = new Wrapper[A0, Base] {
     type A = A0
 
     def apply(a: A) = a
   }
-
-  // state's definition in scalaz is weird enough to confuse scalac, but it's an important effect to support
-  /*implicit def corecurseState[S, E, C <: Effects, A0](implicit W: Wrapper.Aux[E, C, A0]): Wrapper.Aux[State[S, E], State[S, ?] |: C, A0] = new Wrapper[State[S, E], State[S, ?] |: C] {
-    type A = A0
-
-    def apply(s: State[S, E]): State[S, C#Point[A0]] = s map { e => W(e) }
-  }*/
 }
 
 // not really sure why these functions in particular need to be moved down

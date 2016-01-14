@@ -1,13 +1,15 @@
 package emm
 
+import emm.cats._
+
 import org.specs2.mutable._
 
-import cats._
-import cats.data._
-import cats.free.Free
-import cats.std.list._
-import cats.std.option._
-import cats.std.function._
+import _root_.cats._
+import _root_.cats.data._
+import _root_.cats.free.Free
+import _root_.cats.std.list._
+import _root_.cats.std.option._
+import _root_.cats.std.function._
 
 import scalaz.concurrent.Task
 
@@ -28,6 +30,9 @@ object BinderSpecs extends Specification with TestHelpers {
 
     "allow binding over a Option of Kleisli of List" in {
       type E = Option |: Kleisli[?[_], Int, ?] -|: List |: Base
+
+      import effects._
+      import properties._
 
       "foobar".pointM[E].flatMap(x => (x + "baz").pointM[E]).run.run(42) mustEqual Some(List("foobarbaz"))
     }

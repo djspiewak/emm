@@ -1,7 +1,7 @@
 package emm
 package effects
 
-import cats.{~>, Applicative, FlatMap, Functor, Monad, Traverse, Eval}
+import shims.{Applicative, FlatMap, Functor, Monad, Traverse}
 import scala.annotation.implicitNotFound
 
 import properties._
@@ -14,36 +14,7 @@ trait Lifter[E, C <: Effects] {
   def apply(e: E): CC[Out]
 }
 
-trait LifterLowPriorityImplicits {
-  import cats.data.Kleisli
-
-  implicit def midKleisli[A, Z, C <: Effects, F <: Effects, T <: Effects](implicit NAP: NestedAtPoint[C, Kleisli[?[_], Z, ?], F, T], F: Mapper[F], T: Mapper[T]): Lifter.Aux[Kleisli[λ[X => X], Z, A], C, A] = new Lifter[Kleisli[λ[X => X], Z, A], C] {
-    type Out = A
-
-    def apply(e: Kleisli[λ[X => X], Z, A]): CC[Out] = {
-      val t = new (λ[X => X] ~> F#Point) {
-        def apply[A](a: A): F#Point[A] = F.point(a)
-      }
-
-      NAP.pack(e.transform[F#Point](t).map(T.point)(F.functor))
-    }
-  }
-
-  implicit def leftPivotKleisli[E, Z, C <: Effects, F <: Effects, T <: Effects](implicit NAP: NestedAtPoint[C, Kleisli[?[_], Z, ?], F, T], T: Mapper[T], F: Lifter[E, F], FM: Mapper[F]): Lifter.Aux[E, C, F.Out] = new Lifter[E, C] {
-    type Out = F.Out
-
-    def apply(e: E): CC[Out] =
-      NAP.pack(Kleisli[F#Point, Z, T#Point[F.Out]]({ _ => FM.map(F(e)) { a => T.point(a) } }))
-  }
-
-  implicit def rightPivotKleisli[E, Z, C <: Effects, F <: Effects, T <: Effects](implicit NAP: NestedAtPoint[C, Kleisli[?[_], Z, ?], F, T], T: Lifter[E, T], F: Mapper[F]): Lifter.Aux[E, C, T.Out] = new Lifter[E, C] {
-    type Out = T.Out
-
-    def apply(e: E): CC[Out] = NAP.pack(Kleisli[F#Point, Z, T#Point[T.Out]] { _ => F.point(T(e)) })
-  }
-}
-
-object Lifter extends LifterLowPriorityImplicits {
+object Lifter {
   type Aux[E, C <: Effects, Out0] = Lifter[E, C] { type Out = Out0 }
 
   implicit def mid1[F[_], A, C <: Effects](implicit C: Mapper[C], F: Functor[F], NN: NonNested[C]): Lifter.Aux[F[A], F |: C, A] = new Lifter[F[A], F |: C] {
@@ -85,36 +56,36 @@ object Lifter extends LifterLowPriorityImplicits {
   implicit def corecurse1[F[_], E, C <: Effects](implicit L: Lifter[E, C], F: Applicative[F], NN: NonNested[C]): Lifter.Aux[E, F |: C, L.Out] = new Lifter[E, F |: C] {
     type Out = L.Out
 
-    def apply(e: E) = NN.pack(F.pure(L(e)))
+    def apply(e: E) = NN.pack(F.point(L(e)))
   }
 
   implicit def corecurse2[F[_, _], F2[_, _], Z, E, C <: Effects](implicit ev: Permute2[F, F2], L: Lifter[E, C], F: Applicative[F2[Z, ?]], NN: NonNested[C]): Lifter.Aux[E, F2[Z, ?] |: C, L.Out] = new Lifter[E, F2[Z, ?] |: C] {
     type Out = L.Out
 
-    def apply(e: E) = NN.pack[F2[Z, ?], Out](F.pure(L(e)))
+    def apply(e: E) = NN.pack[F2[Z, ?], Out](F.point(L(e)))
   }
 
   implicit def corecurse3[F[_, _, _], F2[_, _, _], Y, Z, E, C <: Effects](implicit ev: Permute3[F, F2], L: Lifter[E, C], F: Applicative[F2[Y, Z, ?]], NN: NonNested[C]): Lifter.Aux[E, F2[Y, Z, ?] |: C, L.Out] = new Lifter[E, F2[Y, Z, ?] |: C] {
     type Out = L.Out
 
-    def apply(e: E) = NN.pack[F2[Y, Z, ?], Out](F.pure(L(e)))
+    def apply(e: E) = NN.pack[F2[Y, Z, ?], Out](F.point(L(e)))
   }
 
   implicit def corecurseH1[F[_[_], _], G[_], E, C <: Effects](implicit L: Lifter[E, C], F: Applicative[F[G, ?]], NN: NonNested[C]): Lifter.Aux[E, F[G, ?] |: C, L.Out] = new Lifter[E, F[G, ?] |: C] {
     type Out = L.Out
 
-    def apply(e: E) = NN.pack[F[G, ?], Out](F.pure(L(e)))
+    def apply(e: E) = NN.pack[F[G, ?], Out](F.point(L(e)))
   }
 
   implicit def corecurseH2[F[_[_], _, _], F2[_[_], _, _], G[_], Z, E, C <: Effects](implicit ev: PermuteH2[F, F2], L: Lifter[E, C], F: Applicative[F2[G, Z, ?]], NN: NonNested[C]): Lifter.Aux[E, F2[G, Z, ?] |: C, L.Out] = new Lifter[E, F2[G, Z, ?] |: C] {
     type Out = L.Out
 
-    def apply(e: E) = NN.pack[F2[G, Z, ?], Out](F.pure(L(e)))
+    def apply(e: E) = NN.pack[F2[G, Z, ?], Out](F.point(L(e)))
   }
 
   implicit def corecurseH3[F[_[_], _, _, _], F2[_[_], _, _, _], G[_], Y, Z, E, C <: Effects](implicit ev: PermuteH3[F, F2], L: Lifter[E, C], F: Applicative[F2[G, Y, Z, ?]], NN: NonNested[C]): Lifter.Aux[E, F2[G, Y, Z, ?] |: C, L.Out] = new Lifter[E, F2[G, Y, Z, ?] |: C] {
     type Out = L.Out
 
-    def apply(e: E) = NN.pack[F2[G, Y, Z, ?], Out](F.pure(L(e)))
+    def apply(e: E) = NN.pack[F2[G, Y, Z, ?], Out](F.point(L(e)))
   }
 }

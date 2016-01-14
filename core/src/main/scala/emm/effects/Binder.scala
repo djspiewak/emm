@@ -1,7 +1,7 @@
 package emm
 package effects
 
-import cats.{Applicative, FlatMap, Functor, Monad, Traverse, Eval}
+import shims.{Applicative, FlatMap, Functor, Monad, Traverse}
 import scala.annotation.implicitNotFound
 
 import properties._
@@ -13,25 +13,7 @@ trait Binder[C <: Effects] {
   def bind[A, B](cca: CC[A])(f: A => CC[B]): CC[B]
 }
 
-trait BinderLowPriorityImplicits {
-  import cats.data.Kleisli
-
-  implicit def pivotKleisli[Z, C <: Effects, F <: Effects, T <: Effects](implicit NAP: NestedAtPoint[C, Kleisli[?[_], Z, ?], F, T], FB: Binder[F], FM: Mapper[F], TB: Binder[T], TT: Traverser[T]): Binder[C] = new Binder[C] {
-    import MapperBinder.monad
-
-    def bind[A, B](fca: CC[A])(f: A => CC[B]): CC[B] = {
-      val back = NAP.unpack(fca) flatMap { ca =>
-        val ptta = TT.traverse[Kleisli[F#Point, Z, ?], A, T#Point[B]](ca)({ a => NAP.unpack(f(a)) })(Kleisli.kleisliApplicative[F#Point, Z])
-
-        ptta map { tta => TB.bind(tta) { a => a } }
-      }
-
-      NAP.pack(back)
-    }
-  }
-}
-
-object Binder extends BinderLowPriorityImplicits {
+object Binder {
 
   implicit def base: Binder[Base] = new Binder[Base] {
     def bind[A, B](fa: A)(f: A => B): B = f(fa)

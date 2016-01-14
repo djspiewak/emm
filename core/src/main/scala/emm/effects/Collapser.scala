@@ -1,7 +1,7 @@
 package emm
 package effects
 
-import cats.{Applicative, FlatMap, Functor, Monad, Traverse, Eval}
+import shims.{Applicative, FlatMap, Functor, Monad, Traverse}
 import scala.annotation.implicitNotFound
 
 import properties._
@@ -15,27 +15,7 @@ trait Collapser[E, C <: Effects] {
   def apply(fa: Point[E]): Out#Point[A]
 }
 
-trait CollapserLowPriorityImplicits1 {
-  import cats.state.State
-
-  /*implicit def headState[S, A0]: Collapser.Aux[State[S, A0], Base, A0, State[S, ?] |: Base] = new Collapser[State[S, A0], Base] {
-    type A = A0
-    type Out = State[S, ?] |: Base
-
-    def apply(fa: State[S, A]): State[S, A] = fa
-  }
-
-  implicit def corecurseState[E, S, C <: Effects](implicit C: Collapser[E, C]): Collapser.Aux[E, State[S, ?] |: C, C.A, State[S, ?] |: C.Out] = new Collapser[E, State[S, ?] |: C] {
-    type A = C.A
-    type Out = State[S, ?] |: C.Out
-
-    // if I use the aliases, scalac gets very confused...
-    def apply(gca: State[S, C#Point[E]]): State[S, C.Out#Point[C.A]] =
-      gca.asInstanceOf[Out#Point[A]]      // already proven equivalent; evaluation requires a Functor
-  }*/
-}
-
-trait CollapserLowPriorityImplicits2 extends CollapserLowPriorityImplicits1 {
+trait CollapserLowPriorityImplicits2 {
 
   implicit def headH2[F[_[_], _, _], F2[_[_], _, _], G[_], Z, A0](implicit ev: PermuteH2[F, F2]): Collapser.Aux[F2[G, Z, A0], Base, A0, F2[G, Z, ?] |: Base] = new Collapser[F2[G, Z, A0], Base] {
     type A = A0
