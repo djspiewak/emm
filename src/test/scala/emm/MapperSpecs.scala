@@ -4,6 +4,8 @@ import org.specs2.mutable._
 
 import cats._
 import cats.data._
+import cats.state._
+import cats.std.function._
 import cats.std.list._
 import cats.std.option._
 
@@ -36,6 +38,20 @@ object MapperSpecs extends Specification with TestHelpers {
       type E = Option |: Kleisli[?[_], Int, ?] -|: List |: Base
 
       "foobar".pointM[E].map(_ + "baz").run.run(42) mustEqual Some(List("foobarbaz"))
+    }
+
+    "allow mapping over State" in {
+      "empty" >> {
+        type E = State[Int, ?] |: Base
+
+        "foobar".pointM[E].map(_ + "baz").run.runA(42).run mustEqual "foobarbaz"
+      }
+
+      "outer" >> {
+        type E = State[Int, ?] |: Option |: Base
+
+        "foobar".pointM[E].map(_ + "baz").run.runA(42).run must beSome("foobarbaz")
+      }
     }
   }
 

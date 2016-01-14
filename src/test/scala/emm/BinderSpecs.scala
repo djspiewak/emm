@@ -5,9 +5,10 @@ import org.specs2.mutable._
 import cats._
 import cats.data._
 import cats.free.Free
+import cats.state._
+import cats.std.function._
 import cats.std.list._
 import cats.std.option._
-import cats.std.function._
 
 import scalaz.concurrent.Task
 
@@ -66,19 +67,19 @@ object BinderSpecs extends Specification with TestHelpers {
       }
     }
 
-    //"bind over a stack that contains state" in {
-    //  "empty" >> {
-    //    type E = State[String, ?] |: Base
+    "bind over a stack that contains state" in {
+      "empty" >> {
+        type E = State[Int, ?] |: Base
 
-    //    (42.pointM[E] flatMap { _ => "foo".pointM[E] }).run.runA("blah").run mustEqual "foo"
-    //  }
+        ("foobar".pointM[E] flatMap { s => (s + "baz").pointM[E] }).run.runA(42).run mustEqual "foobarbaz"
+      }
 
-    //  "outer" >> {
-    //    type E = State[String, ?] |: Option |: Base
+      "outer" >> {
+        type E = State[Int, ?] |: Option |: Base
 
-    //    (42.pointM[E] flatMap { _ => "foo".pointM[E] }).run.runA("blah").run must beSome("foo")
-    //  }
-    //}
+        ("foobar".pointM[E] flatMap { s => (s + "baz").pointM[E] }).run.runA(42).run must beSome("foobarbaz")
+      }
+    }
 
     "enable flatMapM in any direction" in {
       type E = List |: Option |: Base

@@ -15,6 +15,7 @@ trait Binder[C <: Effects] {
 
 trait BinderLowPriorityImplicits {
   import cats.data.Kleisli
+  import cats.state.State
 
   implicit def pivotKleisli[Z, C <: Effects, F <: Effects, T <: Effects](implicit NAP: NestedAtPoint[C, Kleisli[?[_], Z, ?], F, T], FB: Binder[F], FM: Mapper[F], TB: Binder[T], TT: Traverser[T]): Binder[C] = new Binder[C] {
     import MapperBinder.monad
@@ -27,6 +28,22 @@ trait BinderLowPriorityImplicits {
       }
 
       NAP.pack(back)
+    }
+  }
+
+  implicit def binderState[S, C <: Effects](implicit C: Binder[C], T: Traverser[C], NN: NonNested[C]): Binder[State[S, ?] |: C] = new Binder[State[S, ?] |: C] {
+
+    def bind[A, B](cca: CC[A])(f: A => CC[B]): CC[B] = {
+      val back = NN.unpack[State[S, ?], A](cca) flatMap { ca =>
+
+        val fcaca = T.traverse[State[S, ?], A, C#Point[B]](ca) { a =>
+          NN.unpack[State[S, ?], B](f(a))
+        }
+
+        fcaca map { caca => C.bind(caca) { a => a } }
+      }
+
+      NN.pack[State[S, ?], B](back)
     }
   }
 }
@@ -54,7 +71,10 @@ object Binder extends BinderLowPriorityImplicits {
 
     def bind[A, B](fca: CC[A])(f: A => CC[B]): CC[B] = {
       val back = B.flatMap(NN.unpack[F2[Z, ?], A](fca)) { ca =>
-        val fcaca = T.traverse[F2[Z, ?], A, C#Point[B]](ca) { a => NN.unpack[F2[Z, ?], B](f(a)) }
+
+        val fcaca = T.traverse[F2[Z, ?], A, C#Point[B]](ca) { a =>
+          NN.unpack[F2[Z, ?], B](f(a))
+        }
 
         F.map(fcaca) { caca => C.bind(caca) { a => a } }
       }
@@ -67,7 +87,10 @@ object Binder extends BinderLowPriorityImplicits {
 
     def bind[A, B](fca: CC[A])(f: A => CC[B]): CC[B] = {
       val back = B.flatMap(NN.unpack[F2[Y, Z, ?], A](fca)) { ca =>
-        val fcaca = T.traverse[F2[Y, Z, ?], A, C#Point[B]](ca) { a => NN.unpack[F2[Y, Z, ?], B](f(a)) }
+
+        val fcaca = T.traverse[F2[Y, Z, ?], A, C#Point[B]](ca) { a =>
+          NN.unpack[F2[Y, Z, ?], B](f(a))
+        }
 
         F.map(fcaca) { caca => C.bind(caca) { a => a } }
       }
@@ -80,7 +103,10 @@ object Binder extends BinderLowPriorityImplicits {
 
     def bind[A, B](fca: CC[A])(f: A => CC[B]): CC[B] = {
       val back = B.flatMap(NN.unpack[F[G, ?], A](fca)) { ca =>
-        val fcaca = T.traverse[F[G, ?], A, C#Point[B]](ca) { a => NN.unpack[F[G, ?], B](f(a)) }
+
+        val fcaca = T.traverse[F[G, ?], A, C#Point[B]](ca) { a =>
+          NN.unpack[F[G, ?], B](f(a))
+        }
 
         F.map(fcaca) { caca => C.bind(caca) { a => a } }
       }
@@ -93,7 +119,10 @@ object Binder extends BinderLowPriorityImplicits {
 
     def bind[A, B](fca: CC[A])(f: A => CC[B]): CC[B] = {
       val back = B.flatMap(NN.unpack[F2[G, Z, ?], A](fca)) { ca =>
-        val fcaca = T.traverse[F2[G, Z, ?], A, C#Point[B]](ca) { a => NN.unpack[F2[G, Z, ?], B](f(a)) }
+
+        val fcaca = T.traverse[F2[G, Z, ?], A, C#Point[B]](ca) { a =>
+          NN.unpack[F2[G, Z, ?], B](f(a))
+        }
 
         F.map(fcaca) { caca => C.bind(caca) { a => a } }
       }
@@ -106,7 +135,10 @@ object Binder extends BinderLowPriorityImplicits {
 
     def bind[A, B](fca: CC[A])(f: A => CC[B]): CC[B] = {
       val back = B.flatMap(NN.unpack[F2[G, Y, Z, ?], A](fca)) { ca =>
-        val fcaca = T.traverse[F2[G, Y, Z, ?], A, C#Point[B]](ca) { a => NN.unpack[F2[G, Y, Z, ?], B](f(a)) }
+
+        val fcaca = T.traverse[F2[G, Y, Z, ?], A, C#Point[B]](ca) { a =>
+          NN.unpack[F2[G, Y, Z, ?], B](f(a))
+        }
 
         F.map(fcaca) { caca => C.bind(caca) { a => a } }
       }
@@ -118,8 +150,11 @@ object Binder extends BinderLowPriorityImplicits {
   implicit def pivot1[Pivot[_[_], _], C <: Effects, F <: Effects, T <: Effects](implicit NAP: NestedAtPoint[C, Pivot, F, T], Pivot: Monad[Pivot[F#Point, ?]], TB: Binder[T], TT: Traverser[T]): Binder[C] = new Binder[C] {
 
     def bind[A, B](fca: CC[A])(f: A => CC[B]): CC[B] = {
+
       val back: Pivot[F#Point, T#Point[B]] = Pivot.flatMap(NAP.unpack(fca)) { ca =>
-        val ptta: Pivot[F#Point, T#Point[T#Point[B]]] = TT.traverse[Pivot[F#Point, ?], A, T#Point[B]](ca)(a => NAP.unpack(f(a)))
+
+        val ptta: Pivot[F#Point, T#Point[T#Point[B]]] =
+          TT.traverse[Pivot[F#Point, ?], A, T#Point[B]](ca)(a => NAP.unpack(f(a)))
 
         Pivot.map(ptta)(tta => TB.bind(tta)(a => a))
       }
@@ -131,8 +166,11 @@ object Binder extends BinderLowPriorityImplicits {
   implicit def pivot2[Pivot[_[_], _, _], Pivot2[_[_], _, _], Z, C <: Effects, F <: Effects, T <: Effects](implicit NAP: NestedAtPoint[C, Pivot2[?[_], Z, ?], F, T], ev: PermuteH2[Pivot, Pivot2],  Pivot: Monad[Pivot2[F#Point, Z, ?]], TB: Binder[T], TT: Traverser[T]): Binder[C] = new Binder[C] {
 
     def bind[A, B](fca: CC[A])(f: A => CC[B]): CC[B] = {
+
       val back: Pivot2[F#Point, Z, T#Point[B]] = Pivot.flatMap(NAP.unpack(fca)) { ca =>
-        val ptta: Pivot2[F#Point, Z, T#Point[T#Point[B]]] = TT.traverse[Pivot2[F#Point, Z, ?], A, T#Point[B]](ca)(a => NAP.unpack(f(a)))
+
+        val ptta: Pivot2[F#Point, Z, T#Point[T#Point[B]]] =
+          TT.traverse[Pivot2[F#Point, Z, ?], A, T#Point[B]](ca)(a => NAP.unpack(f(a)))
 
         Pivot.map(ptta)(tta => TB.bind(tta)(a => a))
       }
@@ -144,8 +182,11 @@ object Binder extends BinderLowPriorityImplicits {
   implicit def pivot3[Pivot[_[_], _, _, _], Pivot2[_[_], _, _, _], Y, Z, C <: Effects, F <: Effects, T <: Effects](implicit NAP: NestedAtPoint[C, Pivot2[?[_], Y, Z, ?], F, T], ev: PermuteH3[Pivot, Pivot2],  Pivot: Monad[Pivot2[F#Point, Y, Z, ?]], TB: Binder[T], TT: Traverser[T]): Binder[C] = new Binder[C] {
 
     def bind[A, B](fca: CC[A])(f: A => CC[B]): CC[B] = {
+
       val back: Pivot2[F#Point, Y, Z, T#Point[B]] = Pivot.flatMap(NAP.unpack(fca)) { ca =>
-        val ptta: Pivot2[F#Point, Y, Z, T#Point[T#Point[B]]] = TT.traverse[Pivot2[F#Point, Y, Z, ?], A, T#Point[B]](ca)(a => NAP.unpack(f(a)))
+
+        val ptta: Pivot2[F#Point, Y, Z, T#Point[T#Point[B]]] =
+          TT.traverse[Pivot2[F#Point, Y, Z, ?], A, T#Point[B]](ca)(a => NAP.unpack(f(a)))
 
         Pivot.map(ptta)(tta => TB.bind(tta)(a => a))
       }
