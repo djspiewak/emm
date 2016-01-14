@@ -35,130 +35,25 @@ object NestedAtPoint {
     def unpack[A](cc: (Pivot2[?[_], Y, Z, ?] -|: C)#Point[A]): Pivot2[λ[X => X], Y, Z, C#Point[A]] = cc.asInstanceOf[Pivot2[λ[X => X], Y, Z, C#Point[A]]]
   }
 
-  implicit def corecurseBar11[G[_], Pivot[_[_], _], C <: Effects, F <: Effects, T <: Effects](implicit C: NestedAtPoint[C, Pivot, F, T]): NestedAtPoint[G |: C, Pivot, G |: F, T] = new NestedAtPoint[G |: C, Pivot, G |: F, T] {
+  implicit def corecurseBar1[Pivot[_[_], _], C <: Effects, C2 <: Effects, F <: Effects, T <: Effects](implicit C2: BarExtract[C, C2], C: NestedAtPoint[C, Pivot, F, T]): NestedAtPoint[C2, Pivot, C2.F |: F, T] = new NestedAtPoint[C2, Pivot, C2.F |: F, T] {
     def NN = C.NN
 
-    def pack[A](cc: Pivot[(G |: F)#Point, T#Point[A]]): (G |: C)#Point[A] = cc.asInstanceOf[(G |: C)#Point[A]]
-    def unpack[A](cc: (G |: C)#Point[A]): Pivot[(G |: F)#Point, T#Point[A]] = cc.asInstanceOf[Pivot[(G |: F)#Point, T#Point[A]]]
+    def pack[A](cc: Pivot[(C2.F |: F)#Point, T#Point[A]]): C2#Point[A] = cc.asInstanceOf[C2#Point[A]]
+    def unpack[A](cc: C2#Point[A]): Pivot[(C2.F |: F)#Point, T#Point[A]] = cc.asInstanceOf[Pivot[(C2.F |: F)#Point, T#Point[A]]]
   }
 
-  implicit def corecurseBar12[G[_], Pivot[_[_], _, _], Z, C <: Effects, F <: Effects, T <: Effects](implicit C: NestedAtPoint[C, Pivot[?[_], Z, ?], F, T]): NestedAtPoint[G |: C, Pivot[?[_], Z, ?], G |: F, T] = new NestedAtPoint[G |: C, Pivot[?[_], Z, ?], G |: F, T] {
+  implicit def corecurseBar2[Pivot[_[_], _, _], Z, C <: Effects, C2 <: Effects, F <: Effects, T <: Effects](implicit C2: BarExtract[C, C2], C: NestedAtPoint[C, Pivot[?[_], Z, ?], F, T]): NestedAtPoint[C2, Pivot[?[_], Z, ?], C2.F |: F, T] = new NestedAtPoint[C2, Pivot[?[_], Z, ?], C2.F |: F, T] {
     def NN = C.NN
 
-    def pack[A](cc: Pivot[(G |: F)#Point, Z, T#Point[A]]): (G |: C)#Point[A] = cc.asInstanceOf[(G |: C)#Point[A]]
-    def unpack[A](cc: (G |: C)#Point[A]): Pivot[(G |: F)#Point, Z, T#Point[A]] = cc.asInstanceOf[Pivot[(G |: F)#Point, Z, T#Point[A]]]
+    def pack[A](cc: Pivot[(C2.F |: F)#Point, Z, T#Point[A]]): C2#Point[A] = cc.asInstanceOf[C2#Point[A]]
+    def unpack[A](cc: C2#Point[A]): Pivot[(C2.F |: F)#Point, Z, T#Point[A]] = cc.asInstanceOf[Pivot[(C2.F |: F)#Point, Z, T#Point[A]]]
   }
 
-  implicit def corecurseBar13[G[_], Pivot[_[_], _, _, _], Y, Z, C <: Effects, F <: Effects, T <: Effects](implicit C: NestedAtPoint[C, Pivot[?[_], Y, Z, ?], F, T]): NestedAtPoint[G |: C, Pivot[?[_], Y, Z, ?], G |: F, T] = new NestedAtPoint[G |: C, Pivot[?[_], Y, Z, ?], G |: F, T] {
+  implicit def corecurseBar3[Pivot[_[_], _, _, _], Y, Z, C <: Effects, C2 <: Effects, F <: Effects, T <: Effects](implicit C2: BarExtract[C, C2], C: NestedAtPoint[C, Pivot[?[_], Y, Z, ?], F, T]): NestedAtPoint[C2, Pivot[?[_], Y, Z, ?], C2.F |: F, T] = new NestedAtPoint[C2, Pivot[?[_], Y, Z, ?], C2.F |: F, T] {
     def NN = C.NN
 
-    def pack[A](cc: Pivot[(G |: F)#Point, Y, Z, T#Point[A]]): (G |: C)#Point[A] = cc.asInstanceOf[(G |: C)#Point[A]]
-    def unpack[A](cc: (G |: C)#Point[A]): Pivot[(G |: F)#Point, Y, Z, T#Point[A]] = cc.asInstanceOf[Pivot[(G |: F)#Point, Y, Z, T#Point[A]]]
-  }
-
-  implicit def corecurseBar21[G[_, _], G2[_, _], Z, Pivot[_[_], _], C <: Effects, F <: Effects, T <: Effects](implicit ev: Permute2[G, G2], C: NestedAtPoint[C, Pivot, F, T]): NestedAtPoint[G2[Z, ?] |: C, Pivot, G2[Z, ?] |: F, T] = new NestedAtPoint[G2[Z, ?] |: C, Pivot, G2[Z, ?] |: F, T] {
-    def NN = C.NN
-
-    def pack[A](cc: Pivot[(G2[Z, ?] |: F)#Point, T#Point[A]]): (G2[Z, ?] |: C)#Point[A] = cc.asInstanceOf[(G2[Z, ?] |: C)#Point[A]]
-    def unpack[A](cc: (G2[Z, ?] |: C)#Point[A]): Pivot[(G2[Z, ?] |: F)#Point, T#Point[A]] = cc.asInstanceOf[Pivot[(G2[Z, ?] |: F)#Point, T#Point[A]]]
-  }
-
-  implicit def corecurseBar22[G[_, _], G2[_, _], Z, Pivot[_[_], _, _], Q, C <: Effects, F <: Effects, T <: Effects](implicit ev: Permute2[G, G2], C: NestedAtPoint[C, Pivot[?[_], Q, ?], F, T]): NestedAtPoint[G2[Z, ?] |: C, Pivot[?[_], Q, ?], G2[Z, ?] |: F, T] = new NestedAtPoint[G2[Z, ?] |: C, Pivot[?[_], Q, ?], G2[Z, ?] |: F, T] {
-    def NN = C.NN
-
-    def pack[A](cc: Pivot[(G2[Z, ?] |: F)#Point, Q, T#Point[A]]): (G2[Z, ?] |: C)#Point[A] = cc.asInstanceOf[(G2[Z, ?] |: C)#Point[A]]
-    def unpack[A](cc: (G2[Z, ?] |: C)#Point[A]): Pivot[(G2[Z, ?] |: F)#Point, Q, T#Point[A]] = cc.asInstanceOf[Pivot[(G2[Z, ?] |: F)#Point, Q, T#Point[A]]]
-  }
-
-  implicit def corecurseBar23[G[_, _], G2[_, _], Z, Pivot[_[_], _, _, _], Q, R, C <: Effects, F <: Effects, T <: Effects](implicit ev: Permute2[G, G2], C: NestedAtPoint[C, Pivot[?[_], Q, R, ?], F, T]): NestedAtPoint[G2[Z, ?] |: C, Pivot[?[_], Q, R, ?], G2[Z, ?] |: F, T] = new NestedAtPoint[G2[Z, ?] |: C, Pivot[?[_], Q, R, ?], G2[Z, ?] |: F, T] {
-    def NN = C.NN
-
-    def pack[A](cc: Pivot[(G2[Z, ?] |: F)#Point, Q, R, T#Point[A]]): (G2[Z, ?] |: C)#Point[A] = cc.asInstanceOf[(G2[Z, ?] |: C)#Point[A]]
-    def unpack[A](cc: (G2[Z, ?] |: C)#Point[A]): Pivot[(G2[Z, ?] |: F)#Point, Q, R, T#Point[A]] = cc.asInstanceOf[Pivot[(G2[Z, ?] |: F)#Point, Q, R, T#Point[A]]]
-  }
-
-  implicit def corecurseBar31[G[_, _, _], G2[_, _, _], Y, Z, Pivot[_[_], _], C <: Effects, F <: Effects, T <: Effects](implicit ev: Permute3[G, G2], C: NestedAtPoint[C, Pivot, F, T]): NestedAtPoint[G2[Y, Z, ?] |: C, Pivot, G2[Y, Z, ?] |: F, T] = new NestedAtPoint[G2[Y, Z, ?] |: C, Pivot, G2[Y, Z, ?] |: F, T] {
-    def NN = C.NN
-
-    def pack[A](cc: Pivot[(G2[Y, Z, ?] |: F)#Point, T#Point[A]]): (G2[Y, Z, ?] |: C)#Point[A] = cc.asInstanceOf[(G2[Y, Z, ?] |: C)#Point[A]]
-    def unpack[A](cc: (G2[Y, Z, ?] |: C)#Point[A]): Pivot[(G2[Y, Z, ?] |: F)#Point, T#Point[A]] = cc.asInstanceOf[Pivot[(G2[Y, Z, ?] |: F)#Point, T#Point[A]]]
-  }
-
-  implicit def corecurseBar32[G[_, _, _], G2[_, _, _], Y, Z, Pivot[_[_], _, _], Q, C <: Effects, F <: Effects, T <: Effects](implicit ev: Permute3[G, G2], C: NestedAtPoint[C, Pivot[?[_], Q, ?], F, T]): NestedAtPoint[G2[Y, Z, ?] |: C, Pivot[?[_], Q, ?], G2[Y, Z, ?] |: F, T] = new NestedAtPoint[G2[Y, Z, ?] |: C, Pivot[?[_], Q, ?], G2[Y, Z, ?] |: F, T] {
-    def NN = C.NN
-
-    def pack[A](cc: Pivot[(G2[Y, Z, ?] |: F)#Point, Q, T#Point[A]]): (G2[Y, Z, ?] |: C)#Point[A] = cc.asInstanceOf[(G2[Y, Z, ?] |: C)#Point[A]]
-    def unpack[A](cc: (G2[Y, Z, ?] |: C)#Point[A]): Pivot[(G2[Y, Z, ?] |: F)#Point, Q, T#Point[A]] = cc.asInstanceOf[Pivot[(G2[Y, Z, ?] |: F)#Point, Q, T#Point[A]]]
-  }
-
-  implicit def corecurseBar33[G[_, _, _], G2[_, _, _], Y, Z, Pivot[_[_], _, _, _], Q, R, C <: Effects, F <: Effects, T <: Effects](implicit ev: Permute3[G, G2], C: NestedAtPoint[C, Pivot[?[_], Q, R, ?], F, T]): NestedAtPoint[G2[Y, Z, ?] |: C, Pivot[?[_], Q, R, ?], G2[Y, Z, ?] |: F, T] = new NestedAtPoint[G2[Y, Z, ?] |: C, Pivot[?[_], Q, R, ?], G2[Y, Z, ?] |: F, T] {
-    def NN = C.NN
-
-    def pack[A](cc: Pivot[(G2[Y, Z, ?] |: F)#Point, Q, R, T#Point[A]]): (G2[Y, Z, ?] |: C)#Point[A] = cc.asInstanceOf[(G2[Y, Z, ?] |: C)#Point[A]]
-    def unpack[A](cc: (G2[Y, Z, ?] |: C)#Point[A]): Pivot[(G2[Y, Z, ?] |: F)#Point, Q, R, T#Point[A]] = cc.asInstanceOf[Pivot[(G2[Y, Z, ?] |: F)#Point, Q, R, T#Point[A]]]
-  }
-
-  implicit def corecurseBarH11[G[_[_], _], H[_], Pivot[_[_], _], C <: Effects, F <: Effects, T <: Effects](implicit C: NestedAtPoint[C, Pivot, F, T]): NestedAtPoint[G[H, ?] |: C, Pivot, G[H, ?] |: F, T] = new NestedAtPoint[G[H, ?] |: C, Pivot, G[H, ?] |: F, T] {
-    def NN = C.NN
-
-    def pack[A](cc: Pivot[(G[H, ?] |: F)#Point, T#Point[A]]): (G[H, ?] |: C)#Point[A] = cc.asInstanceOf[(G[H, ?] |: C)#Point[A]]
-    def unpack[A](cc: (G[H, ?] |: C)#Point[A]): Pivot[(G[H, ?] |: F)#Point, T#Point[A]] = cc.asInstanceOf[Pivot[(G[H, ?] |: F)#Point, T#Point[A]]]
-  }
-
-  implicit def corecurseBarH12[G[_[_], _], H[_], Pivot[_[_], _, _], R, C <: Effects, F <: Effects, T <: Effects](implicit C: NestedAtPoint[C, Pivot[?[_], R, ?], F, T]): NestedAtPoint[G[H, ?] |: C, Pivot[?[_], R, ?], G[H, ?] |: F, T] = new NestedAtPoint[G[H, ?] |: C, Pivot[?[_], R, ?], G[H, ?] |: F, T] {
-    def NN = C.NN
-
-    def pack[A](cc: Pivot[(G[H, ?] |: F)#Point, R, T#Point[A]]): (G[H, ?] |: C)#Point[A] = cc.asInstanceOf[(G[H, ?] |: C)#Point[A]]
-    def unpack[A](cc: (G[H, ?] |: C)#Point[A]): Pivot[(G[H, ?] |: F)#Point, R, T#Point[A]] = cc.asInstanceOf[Pivot[(G[H, ?] |: F)#Point, R, T#Point[A]]]
-  }
-
-  implicit def corecurseBarH13[G[_[_], _], H[_], Pivot[_[_], _, _, _], Q, R, C <: Effects, F <: Effects, T <: Effects](implicit C: NestedAtPoint[C, Pivot[?[_], Q, R, ?], F, T]): NestedAtPoint[G[H, ?] |: C, Pivot[?[_], Q, R, ?], G[H, ?] |: F, T] = new NestedAtPoint[G[H, ?] |: C, Pivot[?[_], Q, R, ?], G[H, ?] |: F, T] {
-    def NN = C.NN
-
-    def pack[A](cc: Pivot[(G[H, ?] |: F)#Point, Q, R, T#Point[A]]): (G[H, ?] |: C)#Point[A] = cc.asInstanceOf[(G[H, ?] |: C)#Point[A]]
-    def unpack[A](cc: (G[H, ?] |: C)#Point[A]): Pivot[(G[H, ?] |: F)#Point, Q, R, T#Point[A]] = cc.asInstanceOf[Pivot[(G[H, ?] |: F)#Point, Q, R, T#Point[A]]]
-  }
-
-  implicit def corecurseBarH21[G[_[_], _, _], G2[_[_], _, _], H[_], Z, Pivot[_[_], _], C <: Effects, F <: Effects, T <: Effects](implicit ev: PermuteH2[G, G2], C: NestedAtPoint[C, Pivot, F, T]): NestedAtPoint[G2[H, Z, ?] |: C, Pivot, G2[H, Z, ?] |: F, T] = new NestedAtPoint[G2[H, Z, ?] |: C, Pivot, G2[H, Z, ?] |: F, T] {
-    def NN = C.NN
-
-    def pack[A](cc: Pivot[(G2[H, Z, ?] |: F)#Point, T#Point[A]]): (G2[H, Z, ?] |: C)#Point[A] = cc.asInstanceOf[(G2[H, Z, ?] |: C)#Point[A]]
-    def unpack[A](cc: (G2[H, Z, ?] |: C)#Point[A]): Pivot[(G2[H, Z, ?] |: F)#Point, T#Point[A]] = cc.asInstanceOf[Pivot[(G2[H, Z, ?] |: F)#Point, T#Point[A]]]
-  }
-
-  implicit def corecurseBarH22[G[_[_], _, _], G2[_[_], _, _], H[_], Z, Pivot[_[_], _, _], R, C <: Effects, F <: Effects, T <: Effects](implicit ev: PermuteH2[G, G2], C: NestedAtPoint[C, Pivot[?[_], R, ?], F, T]): NestedAtPoint[G2[H, Z, ?] |: C, Pivot[?[_], R, ?], G2[H, Z, ?] |: F, T] = new NestedAtPoint[G2[H, Z, ?] |: C, Pivot[?[_], R, ?], G2[H, Z, ?] |: F, T] {
-    def NN = C.NN
-
-    def pack[A](cc: Pivot[(G2[H, Z, ?] |: F)#Point, R, T#Point[A]]): (G2[H, Z, ?] |: C)#Point[A] = cc.asInstanceOf[(G2[H, Z, ?] |: C)#Point[A]]
-    def unpack[A](cc: (G2[H, Z, ?] |: C)#Point[A]): Pivot[(G2[H, Z, ?] |: F)#Point, R, T#Point[A]] = cc.asInstanceOf[Pivot[(G2[H, Z, ?] |: F)#Point, R, T#Point[A]]]
-  }
-
-  implicit def corecurseBarH23[G[_[_], _, _], G2[_[_], _, _], H[_], Z, Pivot[_[_], _, _, _], Q, R, C <: Effects, F <: Effects, T <: Effects](implicit ev: PermuteH2[G, G2], C: NestedAtPoint[C, Pivot[?[_], Q, R, ?], F, T]): NestedAtPoint[G2[H, Z, ?] |: C, Pivot[?[_], Q, R, ?], G2[H, Z, ?] |: F, T] = new NestedAtPoint[G2[H, Z, ?] |: C, Pivot[?[_], Q, R, ?], G2[H, Z, ?] |: F, T] {
-    def NN = C.NN
-
-    def pack[A](cc: Pivot[(G2[H, Z, ?] |: F)#Point, Q, R, T#Point[A]]): (G2[H, Z, ?] |: C)#Point[A] = cc.asInstanceOf[(G2[H, Z, ?] |: C)#Point[A]]
-    def unpack[A](cc: (G2[H, Z, ?] |: C)#Point[A]): Pivot[(G2[H, Z, ?] |: F)#Point, Q, R, T#Point[A]] = cc.asInstanceOf[Pivot[(G2[H, Z, ?] |: F)#Point, Q, R, T#Point[A]]]
-  }
-
-  implicit def corecurseBarH31[G[_[_], _, _, _], G2[_[_], _, _, _], H[_], Y, Z, Pivot[_[_], _], C <: Effects, F <: Effects, T <: Effects](implicit ev: PermuteH3[G, G2], C: NestedAtPoint[C, Pivot, F, T]): NestedAtPoint[G2[H, Y, Z, ?] |: C, Pivot, G2[H, Y, Z, ?] |: F, T] = new NestedAtPoint[G2[H, Y, Z, ?] |: C, Pivot, G2[H, Y, Z, ?] |: F, T] {
-    def NN = C.NN
-
-    def pack[A](cc: Pivot[(G2[H, Y, Z, ?] |: F)#Point, T#Point[A]]): (G2[H, Y, Z, ?] |: C)#Point[A] = cc.asInstanceOf[(G2[H, Y, Z, ?] |: C)#Point[A]]
-    def unpack[A](cc: (G2[H, Y, Z, ?] |: C)#Point[A]): Pivot[(G2[H, Y, Z, ?] |: F)#Point, T#Point[A]] = cc.asInstanceOf[Pivot[(G2[H, Y, Z, ?] |: F)#Point, T#Point[A]]]
-  }
-
-  implicit def corecurseBarH32[G[_[_], _, _, _], G2[_[_], _, _, _], H[_], Y, Z, Pivot[_[_], _, _], R, C <: Effects, F <: Effects, T <: Effects](implicit ev: PermuteH3[G, G2], C: NestedAtPoint[C, Pivot[?[_], R, ?], F, T]): NestedAtPoint[G2[H, Y, Z, ?] |: C, Pivot[?[_], R, ?], G2[H, Y, Z, ?] |: F, T] = new NestedAtPoint[G2[H, Y, Z, ?] |: C, Pivot[?[_], R, ?], G2[H, Y, Z, ?] |: F, T] {
-    def NN = C.NN
-
-    def pack[A](cc: Pivot[(G2[H, Y, Z, ?] |: F)#Point, R, T#Point[A]]): (G2[H, Y, Z, ?] |: C)#Point[A] = cc.asInstanceOf[(G2[H, Y, Z, ?] |: C)#Point[A]]
-    def unpack[A](cc: (G2[H, Y, Z, ?] |: C)#Point[A]): Pivot[(G2[H, Y, Z, ?] |: F)#Point, R, T#Point[A]] = cc.asInstanceOf[Pivot[(G2[H, Y, Z, ?] |: F)#Point, R, T#Point[A]]]
-  }
-
-  implicit def corecurseBarH33[G[_[_], _, _, _], G2[_[_], _, _, _], H[_], Y, Z, Pivot[_[_], _, _, _], Q, R, C <: Effects, F <: Effects, T <: Effects](implicit ev: PermuteH3[G, G2], C: NestedAtPoint[C, Pivot[?[_], Q, R, ?], F, T]): NestedAtPoint[G2[H, Y, Z, ?] |: C, Pivot[?[_], Q, R, ?], G2[H, Y, Z, ?] |: F, T] = new NestedAtPoint[G2[H, Y, Z, ?] |: C, Pivot[?[_], Q, R, ?], G2[H, Y, Z, ?] |: F, T] {
-    def NN = C.NN
-
-    def pack[A](cc: Pivot[(G2[H, Y, Z, ?] |: F)#Point, Q, R, T#Point[A]]): (G2[H, Y, Z, ?] |: C)#Point[A] = cc.asInstanceOf[(G2[H, Y, Z, ?] |: C)#Point[A]]
-    def unpack[A](cc: (G2[H, Y, Z, ?] |: C)#Point[A]): Pivot[(G2[H, Y, Z, ?] |: F)#Point, Q, R, T#Point[A]] = cc.asInstanceOf[Pivot[(G2[H, Y, Z, ?] |: F)#Point, Q, R, T#Point[A]]]
+    def pack[A](cc: Pivot[(C2.F |: F)#Point, Y, Z, T#Point[A]]): C2#Point[A] = cc.asInstanceOf[C2#Point[A]]
+    def unpack[A](cc: C2#Point[A]): Pivot[(C2.F |: F)#Point, Y, Z, T#Point[A]] = cc.asInstanceOf[Pivot[(C2.F |: F)#Point, Y, Z, T#Point[A]]]
   }
 
   // these cases are currently disabled since we have no present use for them and they slow down compilation by roughly 83%
