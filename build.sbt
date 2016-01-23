@@ -7,7 +7,7 @@ lazy val commonSettings = Seq(
 
   crossScalaVersions := Seq(scalaVersion.value/*, "2.10.6"*/),
 
-  shimsVersion := "0.1-daa4b3e",
+  shimsVersion := "0.1-b7e8e5f",
 
   libraryDependencies += "org.specs2" %% "specs2-core" % "3.6.6" % "test",
 
@@ -44,7 +44,7 @@ lazy val commonSettings = Seq(
   scmInfo := Some(ScmInfo(url("https://github.com/djspiewak/emm"),
     "git@github.com:djspiewak/emm.git")))
 
-lazy val root = project.in(file(".")).settings(commonSettings: _*).aggregate(core, cats, scalaz).settings(
+lazy val root = project.in(file(".")).settings(commonSettings: _*).aggregate(core, cats, scalaz71, scalaz72).settings(
   name := "emm",
 
   publish := (),
@@ -53,7 +53,24 @@ lazy val root = project.in(file(".")).settings(commonSettings: _*).aggregate(cor
 
 lazy val core = project.in(file("core")).settings(commonSettings: _*)
 lazy val cats = project.in(file("cats")).settings(commonSettings: _*).dependsOn(core)
-lazy val scalaz = project.in(file("scalaz")).settings(commonSettings: _*).dependsOn(core)
+
+lazy val scalaz71 = project
+  .in(file("scalaz"))
+  .settings(commonSettings: _*)
+  .dependsOn(core)
+  .settings(
+    name := "emm-scalaz-71",
+    target := target.value / "7.1",
+    libraryDependencies += "com.codecommit" %% "shims-scalaz-71" % shimsVersion.value)
+
+lazy val scalaz72 = project
+  .in(file("scalaz"))
+  .settings(commonSettings: _*)
+  .dependsOn(core)
+  .settings(
+    name := "emm-scalaz-72",
+    target := target.value / "7.2",
+    libraryDependencies += "com.codecommit" %% "shims-scalaz-72" % shimsVersion.value)
 
 enablePlugins(GitVersioning)
 
