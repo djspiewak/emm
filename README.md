@@ -22,7 +22,11 @@ libraryDependencies += "com.codecommit" %% "emm-core" % EmmVersion
 You will also need to bring in the appropriate upstream framework support for either Scalaz or Cats, depending on which one you're using.
 
 ```sbt
-libraryDependencies += "com.codecommit" %% "emm-scalaz" % EmmVersion      // for scalaz
+libraryDependencies += "com.codecommit" %% "emm-scalaz-71" % EmmVersion      // for scalaz 7.1
+
+// or!
+
+libraryDependencies += "com.codecommit" %% "emm-scalaz-72" % EmmVersion      // for scalaz 7.2
 
 // or!
 
