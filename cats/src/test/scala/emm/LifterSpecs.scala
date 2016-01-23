@@ -4,11 +4,11 @@ import emm.compat.cats._
 
 import org.specs2.mutable._
 
-import _root_.cats._
-import _root_.cats.data._
-import _root_.cats.std.list._
-import _root_.cats.std.option._
-import _root_.cats.free.Free
+import cats._
+import cats.data._
+import cats.std.list._
+import cats.std.option._
+import cats.free.Free
 
 import scalaz.concurrent.Task
 
@@ -90,7 +90,7 @@ object LifterSpecs extends Specification with TestHelpers {
     }
 
     "lift into a stack that contains a kleisli" in {
-      import _root_.cats.data.Kleisli
+      import cats.data.Kleisli
 
       "inner" >> {
         type E = Option |: Kleisli[?[_], String, ?] -|: Base

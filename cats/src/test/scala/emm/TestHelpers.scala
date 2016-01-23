@@ -2,9 +2,9 @@ package emm
 
 import org.specs2.matcher._
 
-import _root_.cats._
-import _root_.cats.data._
-import _root_.cats.free.Free
+import cats._
+import cats.data._
+import cats.free.Free
 
 import scalaz.concurrent.Task
 
