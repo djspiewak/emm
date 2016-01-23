@@ -1,6 +1,6 @@
 package emm
 
-import emm.cats._
+import emm.compat.cats._
 
 import org.specs2.mutable._
 
