@@ -66,24 +66,6 @@ object ExpanderCollapserSpecs extends Specification with TestHelpers {
       }
     }
 
-    //"allow both expansion and collapse of base with state" in {
-    //  "inner" >> {
-    //    type E = Task |: State[String, ?] |: Base
-
-    //    val e = (Task now 42).liftM[E].expand map { s => State.pure[String, Int](s.runA("blerg").run + 12) } collapse
-
-    //    e.run.run.runA("boo").run mustEqual 54
-    //  }
-
-    //  "outer" >> {
-    //    type E = State[String, ?] |: Task |: Base
-
-    //    val e = (Task now 42).liftM[E].expand map { _.attempt } collapse
-
-    //    e.run.runA("boo").run.run mustEqual \/-(42)
-    //  }
-    //}
-
     "allow both expansion and collapse of base with a higher-order arity-2 constructor" in {
       val toList = new (Option ~> List) {
         def apply[A](xs: Option[A]) = xs.toList
