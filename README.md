@@ -16,9 +16,25 @@ These goals are very similar to those which motivated [Oleg's `Eff`](http://okmi
 As `Emm` is currently in rapid iteration and design, we are only releasing snapshots on an ad hoc basis to Bintray.  If you want to use `Emm` in your project, adding the following SBT configuration will do the trick:
 
 ```sbt
-resolvers += "bintray-djspiewak-maven" at "https://dl.bintray.com/djspiewak/maven"
+libraryDependencies += "com.codecommit" %% "emm-core" % EmmVersion
+```
 
-libraryDependencies += "com.codecommit" %% "emm" % "0.1-c65281a"
+You will also need to bring in the appropriate upstream framework support for either Scalaz or Cats, depending on which one you're using.
+
+```sbt
+libraryDependencies += "com.codecommit" %% "emm-scalaz" % EmmVersion      // for scalaz
+
+// or!
+
+libraryDependencies += "com.codecommit" %% "emm-cats" % EmmVersion        // for cats
+```
+
+You will want to use either `emm-scalaz` or `emm-cats`.  While there is no technical reason you would not be able to use both in the same project, doing so would be… weird.  At present, Cats support is slightly more complete than Scalaz, but we aim to reach parity soon.
+
+At present, there is no stable version of Emm.  There should be one soon.  In the meantime, have a hash version:
+
+```sbt
+val EmmVersion = "0.1-8ce4a7c"
 ```
 
 Not all git hashes are published, but some are.  When in doubt, try a few.  Or just ask for one to be published.  All artifacts are signed with public key fingerprint [2BAE 5960](https://keybase.io/djspiewak).
