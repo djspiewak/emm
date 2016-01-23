@@ -4,12 +4,13 @@ import emm.compat.cats._
 
 import org.specs2.mutable._
 
-import _root_.cats._
-import _root_.cats.data._
-import _root_.cats.free.Free
-import _root_.cats.std.list._
-import _root_.cats.std.option._
-import _root_.cats.std.function._
+import cats._
+import cats.data._
+import cats.free.Free
+import cats.state._
+import cats.std.list._
+import cats.std.option._
+import cats.std.function._
 
 import scalaz.concurrent.Task
 
@@ -71,19 +72,19 @@ object BinderSpecs extends Specification with TestHelpers {
       }
     }
 
-    //"bind over a stack that contains state" in {
-    //  "empty" >> {
-    //    type E = State[String, ?] |: Base
+    "bind over a stack that contains state" in {
+      "inner" >> {
+        type E = Option |: StateT[?[_], String, ?] -|: Base
 
-    //    (42.pointM[E] flatMap { _ => "foo".pointM[E] }).run.runA("blah").run mustEqual "foo"
-    //  }
+         (42.pointM[E] flatMap { _ => "foo".pointM[E] }).run.runA("blah") must beSome("foo")
+       }
 
-    //  "outer" >> {
-    //    type E = State[String, ?] |: Option |: Base
+       "mid" >> {
+         type E = List |: StateT[?[_], String, ?] -|: Option |: Base
 
-    //    (42.pointM[E] flatMap { _ => "foo".pointM[E] }).run.runA("blah").run must beSome("foo")
-    //  }
-    //}
+         (42.pointM[E] flatMap { _ => "foo".pointM[E] }).run.runA("blah") mustEqual List(Some("foo"))
+      }
+    }
 
     "enable flatMapM in any direction" in {
       type E = List |: Option |: Base

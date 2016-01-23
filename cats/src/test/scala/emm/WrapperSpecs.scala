@@ -4,9 +4,12 @@ import emm.compat.cats._
 
 import org.specs2.mutable._
 
-import _root_.cats._
-import _root_.cats.data._
-import _root_.cats.free.Free
+import cats._
+import cats.data._
+import cats.free.Free
+import cats.state._
+import cats.std.option._
+import cats.std.list._
 
 object WrapperSpecs extends Specification with TestHelpers {
 
@@ -48,32 +51,5 @@ object WrapperSpecs extends Specification with TestHelpers {
         Free.pure[List, Option[Int]](Option(42)).wrapM[E] must haveType[Emm[Free[List, ?] |: Option |: Base, Int]].attempt
       }
     }
-
-    //"allow wrapping of two paired constructors where one is state" in {
-    //  "inner" >> {
-    //    type E = Option |: State[String, ?] |: Base
-
-    //    import Effects._
-
-    //    import cats.state.StateT
-    //    import cats.free.Trampoline
-
-    //    val foo = implicitly[Wrapper[State[String, Int], State[String, ?] |: Base]](Wrapper.corecurseH2[StateT, StateT, Trampoline, String, State[String, Int], Base, Int])
-
-    //    Option(State.pure[String, Int](42)).wrapM must haveType[Emm[Option |: State[String, ?] |: Base, Int]].attempt
-    //    Option(State.pure[String, Int](42)).wrapM[E](foo) must haveType[Emm[Option |: State[String, ?] |: Base, Int]].attempt
-    //  }
-
-    //  "outer" >> {
-    //    type E = State[String, ?] |: Option |: Base
-
-
-    //    import Effects._
-    //    val foo = implicitly[Wrapper[State[String, Option[Int]], E]]
-
-    //    State.pure[String, Option[Int]](Option(42)).wrapM must haveType[Emm[State[String, ?] |: Option |: Base, Int]].attempt
-    //    State.pure[String, Option[Int]](Option(42)).wrapM[E](foo) must haveType[Emm[State[String, ?] |: Option |: Base, Int]].attempt
-    //  }
-    //}
   }
 }
