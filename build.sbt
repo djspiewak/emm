@@ -76,7 +76,7 @@ enablePlugins(GitVersioning)
 
 val ReleaseTag = """^v([\d\.]+)$""".r
 
-git.baseVersion := "0.1"
+git.baseVersion := "0.2"
 
 git.gitTagToVersionNumber := {
   case ReleaseTag(version) => Some(version)
