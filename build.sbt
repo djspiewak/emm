@@ -5,7 +5,7 @@ lazy val commonSettings = Seq(
 
   scalaVersion := "2.11.7",
 
-  crossScalaVersions := Seq(scalaVersion.value, "2.10.6"),
+  crossScalaVersions := Seq(scalaVersion.value/*, "2.10.6"*/),
 
   shimsVersion := "0.1-daa4b3e",
 
