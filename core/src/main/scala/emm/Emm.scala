@@ -19,11 +19,11 @@ final case class Emm[C <: Effects, A](run: C#Point[A]) {
 object Emm {
   import effects._
 
-  def point[A, C <: Effects](a: A)(implicit M: Mapper[C]): Emm[C, A] = Emm[C, A](M.point(a))
+  def point[C <: Effects, A](a: A)(implicit M: Mapper[C]): Emm[C, A] = Emm[C, A](M.point(a))
 
-  def lift[A, C <: Effects](a: A)(implicit L: Lifter[A, C]): Emm[C, L.Out] = Emm(L(a))
+  def lift[C <: Effects, A](a: A)(implicit L: Lifter[A, C]): Emm[C, L.Out] = Emm(L(a))
 
-  def wrap[A, C <: Effects](a: A)(implicit W: Wrapper[A, C]): Emm[C, W.A] = Emm[C, W.A](W(a))
+  def wrap[C <: Effects, A](a: A)(implicit W: Wrapper[A, C]): Emm[C, W.A] = Emm[C, W.A](W(a))
 }
 
 /*trait EmmLowPriorityImplicits1 {
