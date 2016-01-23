@@ -7,7 +7,7 @@ lazy val commonSettings = Seq(
 
   crossScalaVersions := Seq(scalaVersion.value, "2.10.6"),
 
-  shimsVersion := "0.1-3532451",
+  shimsVersion := "0.1-daa4b3e",
 
   libraryDependencies += "org.specs2" %% "specs2-core" % "3.6.6" % "test",
 
@@ -17,9 +17,40 @@ lazy val commonSettings = Seq(
   scalacOptions += "-Ybackend:GenBCode",
   // scalacOptions += "-Xlog-implicits",
 
-  scalacOptions in Test += "-Yrangepos")
+  scalacOptions in Test += "-Yrangepos",
 
-lazy val root = project.in(file(".")).settings(commonSettings: _*).settings(name := "emm").aggregate(core, cats, scalaz)
+  isSnapshot := version.value endsWith "SNAPSHOT",      // so… sonatype doesn't like git hash snapshots
+
+  publishMavenStyle := true,
+  pomIncludeRepository := { _ => false },
+
+  sonatypeProfileName := "com.codecommit",
+
+  pomExtra :=
+    <developers>
+      <developer>
+        <id>djspiewak</id>
+        <name>Daniel Spiewak</name>
+        <url>http://www.codecommit.com</url>
+      </developer>
+      <developer>
+        <id>alissapajer</id>
+        <name>Alissa Pajer</name>
+      </developer>
+    </developers>,
+
+  homepage := Some(url("https://github.com/djspiewak/emm")),
+
+  scmInfo := Some(ScmInfo(url("https://github.com/djspiewak/emm"),
+    "git@github.com:djspiewak/emm.git")))
+
+lazy val root = project.in(file(".")).settings(commonSettings: _*).aggregate(core, cats, scalaz).settings(
+  name := "emm",
+
+  publish := (),
+  publishLocal := (),
+  publishArtifact := false)
+
 lazy val core = project.in(file("core")).settings(commonSettings: _*)
 lazy val cats = project.in(file("cats")).settings(commonSettings: _*).dependsOn(core)
 lazy val scalaz = project.in(file("scalaz")).settings(commonSettings: _*).dependsOn(core)
