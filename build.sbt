@@ -5,7 +5,7 @@ lazy val commonSettings = Seq(
 
   scalaVersion := "2.11.7",
 
-  crossScalaVersions := Seq(scalaVersion.value/*, "2.10.6"*/),
+  crossScalaVersions := Seq(scalaVersion.value),
 
   shimsVersion := "0.2-521580f",
 
@@ -15,6 +15,7 @@ lazy val commonSettings = Seq(
 
   scalacOptions += "-language:_",      // I really can't be bothered with SIP-18
   scalacOptions += "-Ybackend:GenBCode",
+
   // scalacOptions += "-Xlog-implicits",
 
   scalacOptions in Test += "-Yrangepos",
