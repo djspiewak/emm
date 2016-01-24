@@ -9,7 +9,7 @@ lazy val commonSettings = Seq(
 
   shimsVersion := "0.2-521580f",
 
-  libraryDependencies += "org.specs2" %% "specs2-core" % "3.6.6" % "test",
+  libraryDependencies += "org.specs2" %% "specs2-core" % "3.7" % "test",
 
   addCompilerPlugin("org.spire-math" % "kind-projector" % "0.7.1" cross CrossVersion.binary),
 
