@@ -7,7 +7,7 @@ lazy val commonSettings = Seq(
 
   crossScalaVersions := Seq(scalaVersion.value),
 
-  shimsVersion := "0.2-521580f",
+  shimsVersion := "0.2",
 
   libraryDependencies += "org.specs2" %% "specs2-core" % "3.7" % "test",
 
