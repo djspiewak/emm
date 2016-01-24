@@ -7,7 +7,7 @@ lazy val commonSettings = Seq(
 
   crossScalaVersions := Seq(scalaVersion.value/*, "2.10.6"*/),
 
-  shimsVersion := "0.1-b7e8e5f",
+  shimsVersion := "0.2-521580f",
 
   libraryDependencies += "org.specs2" %% "specs2-core" % "3.6.6" % "test",
 
@@ -54,23 +54,9 @@ lazy val root = project.in(file(".")).settings(commonSettings: _*).aggregate(cor
 lazy val core = project.in(file("core")).settings(commonSettings: _*)
 lazy val cats = project.in(file("cats")).settings(commonSettings: _*).dependsOn(core)
 
-lazy val scalaz71 = project
-  .in(file("scalaz"))
-  .settings(commonSettings: _*)
-  .dependsOn(core)
-  .settings(
-    name := "emm-scalaz-71",
-    target := target.value / "7.1",
-    libraryDependencies += "com.codecommit" %% "shims-scalaz-71" % shimsVersion.value)
-
-lazy val scalaz72 = project
-  .in(file("scalaz"))
-  .settings(commonSettings: _*)
-  .dependsOn(core)
-  .settings(
-    name := "emm-scalaz-72",
-    target := target.value / "7.2",
-    libraryDependencies += "com.codecommit" %% "shims-scalaz-72" % shimsVersion.value)
+// TODO differentiate specs2 versions to deal with scalaz issues
+lazy val scalaz72 = project.in(file("scalaz72")).settings(commonSettings: _*).dependsOn(core)
+lazy val scalaz71 = project.in(file("scalaz71")).settings(commonSettings: _*).dependsOn(core)
 
 enablePlugins(GitVersioning)
 
@@ -90,3 +76,5 @@ git.formattedShaVersion := {
     git.baseVersion.value + "-" + sha + suffix
   }
 }
+
+git.gitUncommittedChanges := "git status -s".!!.trim.length > 0
