@@ -47,6 +47,8 @@ Not all git hashes are published, but some are.  When in doubt, try a few.  Or j
 
 ```scala
 import emm._
+import emm.compat.scalaz._
+
 import scalaz.concurrent.Task
 import scalaz.std.option._
 
@@ -89,6 +91,7 @@ The advantages of `Emm` become much more apparent when attempting to stack more 
 
 ```scala
 import emm._
+import emm.compat.scalaz._
 
 import scalaz._
 import scalaz.concurrent.Task
@@ -151,7 +154,9 @@ The following API is provided.  For starters, the following pair of functions ar
 - `liftM[C <: Effects]` – Given an effect which is of a type contained within `C`, lift the effect into the full effect stack represented by `C`.  For example: `Option(42).liftM[Task |: Option |: Base]`
 - `wrapM[C <: Effects]` – Given a full stack of effects which matches the stack `C`, wrap the stack in the `Emm` monad.  Note that the `C` parameter can be inferred basically 100% of the time, but can be provided explicitly to assert correctness.  Example: `(Task now Option(42)).wrapM`.  This is equivalent to calling the `Emm(...)` constructor, but the type inference is much nicer.
 
-These methods are exposed via implicit classes contained within the `emm` package object.  The `Emm` monad itself provides the following (effective) API:
+These methods are exposed via implicit classes contained within the `emm` package object.  All of the above methods are aliased on the `Emm` object as `point`, `lift` and `wrap`, respectively.  You'll notice, however, that they do require a bit of extra type annotation since the target type and the effect stack are in the same type block, rather than separate ones (as in the case of implicitly provided members).  Thus, you should generally prefer the "`M` versions" of each method wherever possible (i.e. when not importing `scalaz.syntax.monad._`).
+
+The `Emm` monad itself provides the following (effective) API:
 
 - `map[B](A => B): Emm[C, B]` – Conventional functor map.  Transforms the value within the effect
 - `flatMap[B](A => Emm[C, B]): Emm[C, B]` – Monadic bind.  Transforms the value within the effect and joins the two effect stacks.  This function requires that all components of `C` define a `bind` function, and all components aside from the outer-most (left-most) must have a `Traverse` instance.
@@ -162,7 +167,7 @@ These methods are exposed via implicit classes contained within the `emm` packag
 
 ## Requirements
 
-Right now, this is sitting on top of the cats 0.3 typeclass hierarchy, but it could be adapted to scalaz (or any other hierarchy) almost trivially.  Everything is implemented in terms of the following type classes (with minimal constraints for every function):
+Right now, this is sitting on top of the [shims](https://github.com/djspiewak/shims) 0.2 typeclass hierarchy, which is to say that it supports Cats 0.3, Scalaz 7.2 and 7.1.  Everything is implemented in terms of the following type classes (with minimal constraints for every function):
 
 - `Applicative`
 - `FlatMap`
@@ -235,73 +240,3 @@ Specifically, the following *kinds* of type constructors are accepted (i.e. will
 - `(* -> *) x * -> *` – Examples: `Free`, `OptionT`, `ListT`, `StreamT`
 - `(* -> *) x * x * -> *` – Examples: *uh...*
 - `(* -> *) x * x * x * -> *` – Examples: `IndexedStateT` (sort of)
-- `State` – Yes, this is actually special-cased
-
-First off, the examples in the higher-order entry (such as `ListT`) are not a typo.  You can (sort of) freely mix monad transformers and `Emm`, though I can only think of one reason why you would want to: effects implemented as transformers on the `Identity` monad.  These implementations are the bane of my existence, but unfortunately they are extremely common due to the nature of scalaz's (and cats') design.
-
-For example, let's imagine that we wanted to compose the `StreamT` effect with `Emm`.  We obviously don't care about the fact that `StreamT` can act as a transformer, since `Emm` handles that for us, so we define a new type alias:
-
-```scala
-type Stream[A] = StreamT[Identity, A]
-```
-
-Seems reasonable.  Now, it would be *intuitive* to expect that this puts us into the `* -> *` case from above, but surprisingly scalac does not agree!  Basically, scalac's type inference algorithm expands fully fixed type aliases (i.e. non-dependent stuff) *before* it solves any expressions, which means that the following will fail to compile:
-
-```scala
-def foo[F[_], A](fa: F[A]) = fa
-
-val xs: Stream[A] = ???
-
-foo(xs)       // boom!
-```
-
-It doesn't work, because scalac is looking for something of kind `* -> *` and it finds something of kind `(* -> *) -> * -> *`: namely, `StreamT`.  The fact that what it finds has *already* been partially-applied on `Identity` is irrelevant, since no part of scalac's type inference really understands partial application at the type level.  Most people who run into SI-2712 do so through this avenue.  Basically, scalac is going to drill down *all the way* to the "base type", which is generally-speaking either a dependent type, a class or a trait.  The form of *that* type is what matters.
-
-What does this have to do with us?  Well, it's easier to see if we look at `State`.  Remember, the `State` monad *in theory* has the following signature:
-
-```scala
-class State[S, A](f: S => (S, A))
-```
-
-Unfortunately, neither scalaz nor cats define their `State` monad in this way.  Scalaz is particularly egregious, since `State` is defined in terms of not one but *two* partial applications:
-
-```scala
-type State[S, A] = StateT[Id, S, A]
-type StateT[F[_], S, A] = IndexedStateT[F, S, S, A]
-```
-
-Dear god, what is `IndexedStateT`??  No one really knows, but it's highly inconvenient.  You'll notice that the kind of `IndexedStateT` (the base type) is `(* -> *) x * x * x * -> *`.  Now, this type signature is in our list, which seems like it should be ok, but unfortunately it turns out that there is one more foible: the `Id` type is treated specially by scalac.
-
-I have no idea why this is, and honestly it's not something I had heard about before.  For context, `Id` is defined in the following way:
-
-```scala
-type Id[+X] = X
-```
-
-Seems straightforward enough.  The variance is scary, because variance is always scary, but generally there's just not much going on here.  The problem is that this type doesn't appear to *consistently* unify with types that have the shape `* -> *`, which is precisely what our `IndexedStateT` pattern seems to require.  In other words, *I can't get `State` to work!*
-
-This is unbelievably frustrating, and `State` is a really really important type of effect.  So it's special-cased.  There is literally a separate case (at a lower priority) in all of the implicit machinery for `State` specifically, and this works.  So, you *can* use `State` with `Emm`, and you basically don't have to worry about any of these shenanigans.  It's only ugly on my end, and then only because scalaz decided to define `State` in terms of a whole series of increasingly-complex monad transformer signatures.
-
-If monad transformers weren't a thing (or more notably, if it weren't idiomatic to define all effect types as transformers), none of this would be an issue.  Unfortunately, `Emm` has to be compatible with this sort of legacy mess, and so `State` is special cased.  Yay?
-
-The good news is that overcoming these limitations is largely a matter of typing, albeit a *lot* of typing.  It's certainly possible to enable support for `State` (and similarly-defined effects), but I haven't done it yet because the work involved is both significant and boring.  In the meantime, only effects with a base type who's kind is on the list above are supported by `Emm`.
-
-Moral of the story: library authors, newtype your effects!  It makes everyone's lives easier.
-
-### `StateT` vs `Emm` with `State`
-
-So there's something very subtle about how `StateT` is defined, relative to `State`.  Let's look at some simplified type signatures:
-
-```scala
-class State[S, A](f: S => (S, A))
-
-class StateT[F[_], S, A](f: F[S => F[(S, A)]])
-```
-
-See the difference?  The trick is that `StateT` has the effect both at the outer level and within the state generator function.  In other words, `StateT` and `State` are fundamentally different monads, though `StateT` degrades to `State` if you instantiate it with `Id`.
-
-If you think about it, this bit of trickery is absolutely required if you want to define `flatMap` on `StateT`.  You'll notice that there is no instance of `Traverse[State[S, ?]]`, nor could there be.  And this is where we start running into some problems with `Emm`.
-
-At present, `State` is treated basically the same as any other monad without a `Traverse`.  So in other words, just like `IO`, `Task` and similar.  If you want to use `flatMap` on your effect stack, you *must* have your `State` as the outer-most effect.  This is a serious limitation, because it means that you cannot have a bindable effect stack which contains *both* `IO` and `State`.  This is notably different from monad transformers, where `StateT[IO, S, A]` is a definable and useful type (because, remember, `StateT` is a different monad from `State`).
-
-So that's annoying...  I don't have a solution to it yet.
