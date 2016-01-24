@@ -55,7 +55,6 @@ lazy val root = project.in(file(".")).settings(commonSettings: _*).aggregate(cor
 lazy val core = project.in(file("core")).settings(commonSettings: _*)
 lazy val cats = project.in(file("cats")).settings(commonSettings: _*).dependsOn(core)
 
-// TODO differentiate specs2 versions to deal with scalaz issues
 lazy val scalaz72 = project.in(file("scalaz72")).settings(commonSettings: _*).dependsOn(core)
 lazy val scalaz71 = project.in(file("scalaz71")).settings(commonSettings: _*).dependsOn(core)
 
