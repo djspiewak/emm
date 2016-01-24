@@ -13,7 +13,7 @@ These goals are very similar to those which motivated [Oleg's `Eff`](http://okmi
 
 ## SBT Setup
 
-As `Emm` is currently in rapid iteration and design, we are only releasing snapshots on an ad hoc basis to Bintray.  If you want to use `Emm` in your project, adding the following SBT configuration will do the trick:
+If you want to use `Emm` in your project, adding the following SBT configuration will do the trick:
 
 ```sbt
 libraryDependencies += "com.codecommit" %% "emm-core" % EmmVersion
