@@ -6,7 +6,6 @@ import org.specs2.mutable._
 
 import cats._
 import cats.data._
-import cats.state.State
 import cats.free.Free
 import cats.std.list._
 import cats.std.option._
