@@ -30,15 +30,15 @@ libraryDependencies += "com.codecommit" %% "emm-scalaz-72" % EmmVersion      // 
 
 // or!
 
-libraryDependencies += "com.codecommit" %% "emm-cats" % EmmVersion        // for cats
+libraryDependencies += "com.codecommit" %% "emm-cats" % EmmVersion        // for cats 0.4.1
 ```
 
 You will want to use either `emm-scalaz` or `emm-cats`.  While there is no technical reason you would not be able to use both in the same project, doing so would be… weird.  At present, Cats support is slightly more complete than Scalaz, but we aim to reach parity soon.
 
-The most recent stable version of Emm is **0.2**.
+The most recent stable version of Emm is **0.2.1**.
 
 ```sbt
-val EmmVersion = "0.2"
+val EmmVersion = "0.2.1"
 ```
 
 Snapshot builds are often published as versions derived from the git hash.  For example, `0.2-a21c63a`.  The version prefix indicates *compatibility* with a particular version line, not derivation or antecedence.  Not all git hashes are published, but some are.  When in doubt, try a few.  Or just ask for one to be published.  All artifacts are signed with public key fingerprint [2BAE 5960](https://keybase.io/djspiewak).
