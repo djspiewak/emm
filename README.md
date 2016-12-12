@@ -2,6 +2,10 @@
 
 Otherwise known as "less confusing monad transformers".
 
+**Warning**  The monad produced by `Emm` is *not* guaranteed to be a lawful monad!  In fact, it isn't even guaranteed to be a lawful applicative.  You can see an example of a violation of the applicative laws [here.](https://gitter.im/typelevel/cats?at=5763685752352c840283176a) (much thanks to @TomasMikula!)  I'm leaving this repository up for pedagogical reasons; it's still an interesting exploration of Scala's type system.  But I do *not* recommend you use it for real work, given that the monad is not lawful.
+
+---
+
 The `Emm` monad provides a syntactically lightweight, type-inference friendly data type for composing effects.  The general motivation is very similar to monad transformers, but the end result is far more user friendly and also significantly more general.  The main goals of the project are as follows:
 
 - Simple and easy to understand
