@@ -13,7 +13,7 @@ The `Emm` monad provides a syntactically lightweight, type-inference friendly da
 - Clean type *errors* (dear god, monad transformer compile errors...)
 - Compatibility with pre-existing monads
 
-These goals are very similar to those which motivated [Oleg's `Eff`](http://okmij.org/ftp/Haskell/extensible/), which is a really terrific data structure.  There are some significant differences though.  Most notably, `Eff` requires effect implementations to be rewritten to be compatible with its internal calculus, and so it does not allow the composition of arbitrary "standalone" monads written in a conventional style.  However, `Eff` is able to provide much greater expressive power than `Emm` (or monad transformers) in several key diminsions.  Oleg goes into significant detail on the expressiveness gains of `Eff` in his paper describing the construct.  `Emm` does not provide the same benefits.
+These goals are very similar to those which motivated [Oleg's `Eff`](http://okmij.org/ftp/Haskell/extensible/), which is a really terrific data structure.  There are some significant differences though.  Most notably, `Eff` requires effect implementations to be rewritten to be compatible with its internal calculus, and so it does not allow the composition of arbitrary "standalone" monads written in a conventional style.  However, `Eff` is able to provide much greater expressive power than `Emm` (or monad transformers) in several key dimensions.  Oleg goes into significant detail on the expressiveness gains of `Eff` in his paper describing the construct.  `Emm` does not provide the same benefits.
 
 ## SBT Setup
 
